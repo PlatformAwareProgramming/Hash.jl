@@ -1,7 +1,5 @@
 
-#include("Hash.jl")
- 
-using ...Hash
+using Hash
  
 @connector module ReadData2
 

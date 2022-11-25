@@ -1,14 +1,4 @@
-#=module Q
-
-    function do_something(x)
-        @info "DO_SOMETHING $x !"
-    end
-   
-    
-end=#
-
-
-using ...Hash
+using Hash
 
 @computation module Q
 

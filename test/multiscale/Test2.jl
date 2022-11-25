@@ -1,6 +1,4 @@
-#=@everywhere=# include("Hash.jl")
-
-#=@everywhere=# using .Hash
+using Hash
 
 @application module Test2
     

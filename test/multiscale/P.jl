@@ -1,5 +1,5 @@
 
-using ...Hash
+using Hash
 
 @computation module P
 
