@@ -1,0 +1,8 @@
+name = "Hash"
+uuid = "2f200ec4-9fb5-48c8-b0dd-e2e7e65dd391"
+authors = ["Francisco Heron de Carvalho Junior <heron@dc.ufc.br>"]
+version = "0.1.0"
+
+[deps]
+MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
