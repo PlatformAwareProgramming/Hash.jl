@@ -1,6 +1,6 @@
 using Hash
 
-@computation module Q
+@computation manycore module Q
 
     @unit module main
 
@@ -10,7 +10,7 @@ using Hash
         
     end
 
-    @unit module worker
+    @unit parallel count = C-1 module worker
 
     end
 

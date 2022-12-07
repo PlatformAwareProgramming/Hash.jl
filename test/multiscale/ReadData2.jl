@@ -1,7 +1,6 @@
-
 using Hash
  
-@connector module ReadData2
+@connector cluster module ReadData2
 
     @unit single module producer
         
@@ -18,7 +17,7 @@ using Hash
         comm = MPI.COMM_WORLD
 
         function produce()
-            @info "PRODUCE!"
+            @info "PRODUCE! $(global_topology[:consumer])"
             
             for i in global_topology[:consumer]
                 MPI.send("message to $i", comm; dest=i)
@@ -40,11 +39,12 @@ using Hash
         comm = MPI.COMM_WORLD
 
         function consume()
+            @info "CONSUME! $(global_topology[:producer])"
             msg = MPI.recv(comm;source=global_topology[:producer][1])
-            @info "**************************** MESSAGE $msg !"
+            @info "**************************** MESSAGE from $msg !"
         end
 
     end
-
+    
 end
 
