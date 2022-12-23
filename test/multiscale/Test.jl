@@ -1,127 +1,57 @@
+
+ #@everywhere begin cd("/home/heron/Dropbox/Copy/ufc_mdcc_hpc/Hash.jl"); import Pkg; Pkg.activate(".") end
+ 
+@everywhere using Hash
+
+@everywhere @application remotecall Test begin
     
-@everywhere module Test
+    @inner ReadData
 
-    ARGS = ["a","b"]
-    include("ReadData.jl")
+    @unit master begin
 
-    module main
+        @info :master
 
-        import ..ReadData.producer
-        
-        function perform()
-            @info "main 1"
-            producer.produce()
-            @info "main 2"
-        end
-
-    end
-
-    module worker1
-
-        import ..ReadData.consumer
-        
-        @info @__MODULE__
-
-        function perform()
-            @info "worker 1"
-            x = consumer.consume()
-            @info "CONSUMing $x !"
-        end
-
-    end
-
-    module worker2
-
-        import ..ReadData.consumer
-
-        function perform()
-            @info "worker 2"
-            x = consumer.consume()
-            @info "CONSUMing $x !"
-        end
-
-    end
-
-    # código inserido automaticamente (cálculo da topologia e chamadda da perform)
-    using Distributed
-
-    placement = Dict()
-    placement_inv = Dict()
-        
-    function run()
-
-        for l in readlines("placement")
-           v = split(l," ")
-           id = parse(Int64,v[1])
-           pr = Symbol(v[2])
-           placement[id] = pr           
-           w = get(placement_inv,pr,Vector())
-           push!(w,id)
-           placement_inv[pr] = w
-        end
-
-        which_unit = placement[Distributed.myid()]
-       
-        ReadData.set_placement(placement_inv,[(:main,:producer),(:worker1,:consumer),(:worker2,:consumer)])
-
-        # the module name is passed as an argument
-        this_unit = getfield(Test, which_unit#="$(ARGS[1])"=#)
-        p = try getfield(this_unit, :perform) catch _ finally nothing end
-        if !isnothing(p) 
-           p()
-        end
-    end
-
-end
-
-@everywhere Test.run()
-
-
-
-#=
-
-@component Test
-
-    @connector ReadData
-
-    @unit main
-    
         @slice ReadData.producer
-    
-        function perform()
-            @info "main 1"
-            producer.produce()
-            @info "main 2"
-        end
+        
+        producer.produce()
         
     end
 
+    @unit parallel worker1 begin
 
-    @unit parallel worker1
-    
+        @inner P
+
+        @info(":worker1 --- unit_idx = $unit_idx")
+        @info(":worker1 --- unit_size = $(length(global_topology[:worker1]))")
+        @info(":worker1 --- global_idx = $(global_topology[:worker1][unit_idx])")
+        @info(":worker1 --- global_idx_cohort = $(global_topology[:worker1])")
+        @info(":worker1 --- local_idx = $(local_topology[:worker1][unit_idx])")
+        @info(":worker1 --- local_idx_cohort = $(local_topology[:worker1])")
+
         @slice ReadData.consumer
-    
-        function perform()
-            @info "worker 1"
-            x = consumer.consume()
-            @info "CONSUMing $x !"
-        end
-
+        
+        P.do_something(1)
+        consumer.consume()
+        
     end
 
-    @unit parallel worker2
     
-        @slice ReadData.consumer
-    
-        function perform()
-            @info "worker 2"
-            x = consumer.consume()
-            @info "CONSUMing $x !"
-        end
+    @unit parallel worker2 begin
 
+        @inner Q
+
+        @info(":worker2 --- unit_idx = $unit_idx")
+        @info(":worker2 --- unit_size = $(length(global_topology[:worker2]))")
+        @info(":worker2 --- global_idx = $(global_topology[:worker2][unit_idx])")
+        @info(":worker2 --- global_idx_cohort = $(global_topology[:worker2])")
+        @info(":worker2 --- local_idx = $(local_topology[:worker2][unit_idx])")
+        @info(":worker2 --- local_idx_cohort = $(local_topology[:worker2])")
+
+        @slice ReadData.consumer
+
+        Q.do_something(0)
+        consumer.consume()
+        
     end
 
 end
-
-
-=#

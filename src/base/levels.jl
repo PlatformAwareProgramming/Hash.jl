@@ -4,10 +4,5 @@
 # ------------------------------------------------------------------
 
 abstract type AnyLevel end
-abstract type Multicluster <: AnyLevel end
-abstract type Cluster <: Multicluster end
-abstract type Manycore <: Cluster end
+abstract type Cluster <: AnyLevel end
 
-level_type(::Val{:multicluster}) = Multicluster
-level_type(::Val{:cluster}) = Cluster
-level_type(::Val{:manycore}) = Manycore

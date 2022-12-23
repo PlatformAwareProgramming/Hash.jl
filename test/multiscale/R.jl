@@ -1,19 +1,31 @@
 using Hash
 
-@computation manycore module R
+@computation manycore R begin
 
-    @unit parallel module x
+    state = Ref{Vector}(Vector())
+
+    trava = Threads.ReentrantLock()
+
+    @unit parallel x begin
 
         function go(unit_idx)
-            @info "GO X... $unit_idx"
+            @info "GO X... begin"
+            lock(R.trava) do
+                push!(R.state[], unit_idx)
+            end
+            @info "GO X... $(R.state[])"
         end
 
     end
 
-    @unit parallel module y
+    @unit parallel y begin
 
         function go(unit_idx)
-            @info "GO Y... $unit_idx"
+            @info "GO Y... begin"
+            lock(R.trava) do
+               push!(R.state[], unit_idx) 
+            end 
+            @info "GO Y... $(R.state[])"
         end
 
     end

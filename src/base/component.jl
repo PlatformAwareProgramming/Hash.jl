@@ -2,51 +2,51 @@
 # Licensed under the MIT License. See LICENCE in the project root.
 # ------------------------------------------------------------------
 
-macro datasource(level, mod)
-    component_macro(level_type(Val(level)), mod.args[2], mod.args[3], false)
+macro datasource(level, cname, block)
+    component_macro(level_type(Val(level)), cname, block)
 end
 
-macro datasource(mod)
-    component_macro(AnyLevel, mod.args[2], mod.args[3], false)
+macro datasource(cname, block)
+    component_macro(AnyLevel, cname, block)
 end
 
-macro connector(level, mod)
-    component_macro(level_type(Val(level)), mod.args[2], mod.args[3], false)
+macro connector(level, cname, block)
+    component_macro(level_type(Val(level)), cname, block)
 end
 
-macro connector(mod)
-    component_macro(AnyLevel, mod.args[2], mod.args[3], false)
+macro connector(cname, block)
+    component_macro(AnyLevel, cname, block)
 end
 
-macro computation(level, mod)
-    component_macro(level_type(Val(level)), mod.args[2], mod.args[3], false)
+macro computation(level, cname, block)
+    component_macro(level_type(Val(level)), cname, block)
 end
 
-macro computation(mod)
-    component_macro(AnyLevel, mod.args[2], mod.args[3], false)
+macro computation(cname, block)
+    component_macro(AnyLevel, cname, block)
 end
 
-macro application(level, mod)
-    cname = string(mod.args[2])
-    args_dict[]["Main.$cname"] = readlines("placement")
+macro application(level, cname, block)
+    args_dict[]["Main"] = ""
+    args_dict[]["Main.$cname"] = read("placement", String)
     current_level[] = level_type(Val(level))
-    component_macro(current_level[], mod.args[2], mod.args[3], true)
-end
-    
-macro application(mod)
-    component_macro(AnyLevel, mod.args[2], mod.args[3], true)
+    level_dict[]["Main"] = current_level[]  
+    component_macro(current_level[], cname, block)
 end
 
-function component_macro(level::Type{<:AnyLevel}, cname, block, isapp)
+saved_enclosing_unit = Ref{Any}()
 
-    @assert level <: current_level[]
+function component_macro(level::Type{<:AnyLevel}, cname, block)
+
+    #@assert level <: current_level[]
 
     is_level_transition = level != current_level[]
     
-    current_component_name = is_level_transition ? "$(current_component()).$(enclosing_unit[]).$cname" : "$(current_component()).$cname"
+#    current_component_name = is_level_transition ? "$(current_component()).$(enclosing_unit[]).$cname" : "$(current_component()).$cname"
+    current_component_name = "$(current_component()).$cname"
     @info "************************** $current_component_name $is_level_transition $level $(current_level[])"
 
-    saved_enclosing_unit = enclosing_unit[]
+    saved_enclosing_unit[] = enclosing_unit[]
     if is_level_transition
         Hash.reset_enclosing_unit()
         current_depth[] = 0
@@ -63,12 +63,12 @@ function component_macro(level::Type{<:AnyLevel}, cname, block, isapp)
     ss = collect_slices(block)
     
     for (cname, us) in ss
-        l = Vector()
+        l = ""
         for (sname, uname) in us
             sname_string = unquotenode(sname)
-
-            for id in placement_inv[][uname]
-                push!(l,"$id $sname_string")
+            ids = placement_inv[][uname]
+            for id in ids
+                l = l * "$id $sname_string\n"
             end
         end
         args_dict[][cname] = l
@@ -76,42 +76,43 @@ function component_macro(level::Type{<:AnyLevel}, cname, block, isapp)
     
     insert_unit_uids(block)
 
-    if (level == Manycore && is_level_transition)
-        pushfirst!(block.args, Meta.parse("function notify_unit_finished() Threads.atomic_add!(wait_unit_threads_counter, 1); if $(Threads.nthreads()) <= wait_unit_threads_counter[] lock(wait_unit_threads[]) do \n notify(wait_unit_threads[]) end end end"))
-        pushfirst!(block.args, :(wait_unit_threads_counter = Threads.Atomic{Int}(0)))
-        pushfirst!(block.args, :(wait_unit_threads = Ref{Threads.Condition}(Threads.Condition())))
-        push!(block.args, Meta.parse("while wait_unit_threads_counter[]<$(Threads.nthreads()) lock(wait_unit_threads[]) do \n wait(wait_unit_threads[]) end end"))
-    end
+    insertAdditionalStatements(level, Val(is_level_transition), block)
 
-    pushfirst!(block.args, :(using Hash))
-
-    push!(block.args,:(Hash.popComponent()))
-    if (is_level_transition)
-        push!(block.args, Meta.parse("Hash.enclosing_unit[] = :($saved_enclosing_unit)"))
-    end
+    @info "................ $cname $(typeof(cname))"
 
     #@info Expr(:module, true, cname, block)
     return esc(Expr(:module, true, cname, block))
 
 end
 
+function insertAdditionalStatements(::Type{<:AnyLevel}, ::Val{true}, block)
+    pushfirst!(block.args, :(using Hash))
+    push!(block.args,:(Hash.popComponent()))
+    push!(block.args, Meta.parse("Hash.enclosing_unit[] = :($(saved_enclosing_unit[]))"))
+end
+
+function insertAdditionalStatements(::Type{<:AnyLevel}, ::Val{false}, block)
+    pushfirst!(block.args, :(using Hash))
+    push!(block.args,:(Hash.popComponent()))
+end
+
 function placement_units(level::Type{<:AnyLevel}, id, level_transition, block)
        
     @info "CALCULATE PLACEMENT 1 $(current_depth[])"
 
-    if current_depth[] == 1 
-        determine_current_args(level, id, level_transition, block)
-    end
+    determine_current_args(level, id, level_transition, block)
     
-    calculate_placement(current_args[]) 
+    calculate_placement(level, current_args[]) 
 
-    while !has_placement_flag[]
-        wait(has_placement)    
+    lock(has_placement) do
+        while !has_placement_flag[]
+            wait(has_placement)    
+        end
     end
 
 end
 
-function collect_units(block)
+function collect_units(level::Type{<:AnyLevel}, block)
 
     @assert block.head == :block
     
@@ -119,28 +120,52 @@ function collect_units(block)
     
     for st in block.args
         if (typeof(st) == Expr && st.head == :macrocall && !isempty(st.args) && string(st.args[1]) == "@unit")
-            uname = nothing
-            modifier = nothing
-            placement_expr::Int = -1
-            for st2 in st.args[2:length(st.args)]
-                if typeof(st2)==Expr && st2.head==:module
-                    uname = st2.args[2]
-                elseif typeof(st2)==Symbol && st2 in [:single, :parallel]
-                    modifier = st2
-                elseif (typeof(st2)==Expr && st2.head == :(=) && typeof(st2.args[1])==Symbol && st2.args[1] == :count)
-                    expr_n = :(let C = $(Threads.nthreads()); $(st2.args[2]) end)
-                    placement_expr = eval(expr_n)
-                end
+            l = length(st.args)
+            unit_count::Int = -1
+            if l==4
+                modifier = :single
+                uname = st.args[3]
+            elseif l==5
+                modifier = st.args[3]
+                uname = st.args[4]
+            elseif l==6
+                modifier = st.args[3]
+                expr_n = placement_expr(level, st.args[4])
+                unit_count = eval(expr_n)
+                uname = st.args[5]
+                @assert(modifier == :parallel)
+            else
+                @info "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! $(st.args)"
+                modifier = nothing
+                uname = nothing
             end
-            push!(r, (uname, isnothing(modifier) ? :single : modifier, placement_expr))  
-            @info "*#*#*#*#*#*#*#*#*#*#*#*# collected unit $((uname, isnothing(modifier) ? :single : modifier, placement_expr))"
+
+
+            #uname = nothing
+            #modifier = nothing
+            #unit_count::Int = -1
+            #for st2 in st.args[2:length(st.args)]
+            #    if typeof(st2)==Expr && st2.head==:module
+            #        uname = st2.args[2]
+            #    elseif typeof(st2)==Symbol && st2 in [:single, :parallel]
+            #        modifier = st2
+            #    elseif (typeof(st2)==Expr && st2.head == :(=) && typeof(st2.args[1])==Symbol && st2.args[1] == :count)
+            #        expr_n = placement_expr(level, st2.args[2])
+            #        unit_count = eval(expr_n)
+            #    end
+            #end
+            push!(r, (uname, modifier, unit_count))  
         end
     end
     return r
 end
 
-function distribute_units(units, n_threads)
+
+function distribute_units(units)
+
     p = Vector()
+
+    total_count = 0
 
     for (uname, modifier, count) in units
         @assert !(modifier == :single && count > 1) && !(modifier == :parallel && count < 0)
@@ -150,30 +175,47 @@ function distribute_units(units, n_threads)
         for i in 1:count
             push!(p, uname)
         end
+        total_count += count
     end
-    return p
+    return (total_count, p)
+
 end
 
+function calculate_placement(level::Type{<:AnyLevel}, placement_string::String)
 
-function calculate_placement(main_placement::AbstractArray{String})
+    @info "MAIN PLACEMENT 1 <><><><><><><><><><><><><><><> $placement_string"
 
-    @info "MAIN PLACEMENT <><><><><><><><><><><><><><><> $main_placement"
+    main_placement = split(placement_string, "\n")
+    
+    @info "MAIN PLACEMENT 2 <><><><><><><><><><><><><><><> $main_placement"
 
-    empty!(placement[])
     empty!(placement_inv[])
 
+    id_count = start_index(level)
     for l in main_placement
-       v = split(l," ")
-       id = parse(Int64,v[1])
-       pr = Symbol(v[2])
-       placement[][id] = pr           
-       w = get(placement_inv[],pr,Vector())
-       push!(w,id)
-       placement_inv[][pr] = w
-    end    
-    
+        if l != "" 
+            v = split(l, " ")
+            if length(v) == 2
+               id = parse(Int64,v[1])    
+               pr = Symbol(v[2])
+            elseif (length(v) == 1)
+               id = id_count
+               pr = Symbol(l)
+            end
+            w = get(placement_inv[], pr, Vector())
+            push!(w, id)
+            placement_inv[][pr] = w
+            id_count += 1
+        end 
+     end    
+ 
     has_placement_flag[] = true
-    notify(has_placement)
+
+    lock(has_placement) do
+        notify(has_placement)
+    end
+
+    @info "PLACEMENT INV 3 <><><><>><><>><><><><><><><><><> $(placement_inv[])"
     
 end
 
@@ -183,37 +225,53 @@ function collect_slices(block)
     @assert block.head == :block
     
     r = Dict()
-    
-    inner_cs = Vector()
 
     uname = nothing
     for st in block.args
         if (typeof(st) == Expr && st.head == :macrocall && !isempty(st.args) && string(st.args[1]) == "@unit")
-           for st2 in st.args[2:length(st.args)]
-                if (typeof(st2)==Expr && st2.head==:module)
-                    uname = st2.args[2]
-                    for st3 in st2.args[3].args
-                        if typeof(st3) == Expr && st3.head == :macrocall && !isempty(st3.args) && string(st3.args[1]) == "@slice"
-                            for st4 in st3.args[2:length(st3.args)]
-                                if typeof(st4) == Expr && st4.head == :.
-                                    cname = "$(current_component()).$(st4.args[1])"
-                                    sname = st4.args[2] 
-                                    l = get(r,cname,Vector())
-                                    push!(l,(sname,uname))
-                                    r[cname] = l
-                                    break                                    
-                                elseif typeof(st4) == Symbol
-                                    cname = "$(current_component()).$uname.$st4"
-                                    sname = :(:main)    
-                                    l = get(r,cname,Vector())
-                                    push!(l,(sname,uname))
-                                    r[cname] = l
-                                    break
-                                end
-                            end
+            l = length(st.args)
+            if l==4
+                uname = st.args[3]
+                block = st.args[4]
+            elseif l==5
+                uname = st.args[4]
+                block = st.args[5]
+            elseif l==6
+                uname = st.args[5]
+                block = st.args[6]
+            end
+            @assert(block.head == :block)
+            for st3 in block.args
+                if typeof(st3) == Expr && st3.head == :macrocall && !isempty(st3.args) && string(st3.args[1]) == "@slice"
+                    for st4 in st3.args[2:length(st3.args)]
+                        if typeof(st4) == Expr && st4.head == :.
+                            cname = "$(current_component()).$(st4.args[1])"
+                            sname = st4.args[2] 
+                            l = get(r,cname,Vector())
+                            push!(l,(sname,uname))
+                            r[cname] = l
+                            break                                    
+                        elseif typeof(st4) == Symbol
+                            cname = "$(current_component()).$st4"
+                            sname = :(:master)    
+                            l = get(r,cname,Vector())
+                            deleteat!(l,findall(x->x==(sname,uname),l)) # remove (:master,???) entries inserted in @inner declarations inside units
+                            push!(l,(sname,uname))
+                            r[cname] = l
+                            break
                         end
                     end
-                    break
+                elseif typeof(st3) == Expr && st3.head == :macrocall && !isempty(st3.args) && string(st3.args[1]) == "@inner"
+                    for st4 in st3.args[2:length(st3.args)]
+                        if typeof(st4) == Symbol
+                            cname = "$(current_component()).$st4"
+                            sname = :(:master)    
+                            l = get(r,cname,Vector())
+                            push!(l,(sname,uname))
+                            r[cname] = l
+                            break
+                        end
+                    end
                 end
             end
         end
@@ -246,14 +304,8 @@ function insert_unit_uids(block)
     @assert (block.head == :block)
     
     for st in block.args
-        if (typeof(st) == Expr && st.head == :macrocall && !isempty(st.args) && string(st.args[1]) == "@unit")            
-            for st2 in st.args[2:length(st.args)]
-                if (typeof(st2)==Expr && st2.head==:module)
-                    uname = st2.args[2]
-                    push!(st.args, copy(placement_inv[]))
-                    break
-                end
-            end
+        if (typeof(st) == Expr && st.head == :macrocall && !isempty(st.args) && string(st.args[1]) == "@unit")    
+            push!(st.args, copy(placement_inv[]))
         end
     end
                

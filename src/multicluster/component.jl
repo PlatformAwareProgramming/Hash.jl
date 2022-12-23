@@ -2,13 +2,23 @@
 # Licensed under the MIT License. See LICENCE in the project root.
 # ------------------------------------------------------------------
 
-function determine_current_args(::Type{Multicluster}, ::Val{0}, level_transition, block)
+abstract type Multicluster <: AnyLevel end
+level_type(::Val{:multicluster}) = Multicluster
+
+start_index(::Type{Multicluster}) = 1
+
+function determine_current_args(::Type{Multicluster}, ::Val{1}, ::Val{true}, block)
     for w in workers()
-        @info "send placement 2 to $w"
-        @spawnat w calculate_placement(current_args[])
+        @info "send placement $(current_args[]) to $w"
+        @spawnat w recv_current_args2(current_args[])
     end
 end
 
-function determine_current_args(::Type{Multicluster}, ::Val{id}, level_transition, block) where id 
+function recv_current_args2(c)
+    @info "recv_current_args $c"
+    current_args[] = c
+end
+
+function determine_current_args(::Type{Multicluster}, ::Val{id}, ::Val{lt}, block) where {id, lt}
     nothing
 end

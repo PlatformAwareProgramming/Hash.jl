@@ -4,6 +4,8 @@ authors = ["Francisco Heron de Carvalho Junior <heron@dc.ufc.br>"]
 version = "0.1.0"
 
 [deps]
+CpuId = "adafc99b-e345-5852-983c-f28acb93d879"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
+MulticlusterManager = "29753191-29ea-4271-8e37-c4364ef3cfd4"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

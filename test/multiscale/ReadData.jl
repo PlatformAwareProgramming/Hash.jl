@@ -1,98 +1,39 @@
-@info "ReadData ARGS=$ARGS"
-    
-module ReadData
+using Hash
+ 
+@connector remotecall ReadData begin
 
-    # begin - automatically inserted code
-    
-    @info "ReadData ARGS=$(Main.ARGS)"
-    
-    placement = Ref{Dict{Symbol,Vector{Int}}}(Dict())
-    
-    function set_placement(d,m)
-        for (k,v) in m
-            t = get(placement[],v,Vector())
-            push!(t,d[k]...)        
-            placement[][v] = t
-        end
-        @info "placement $(placement[])"
-    end
+    @unit single producer begin
         
-    getPlacement(k) = placement[][k]    
-        
-    export getPlacement
-    
-    # end - automatically inserted code
-
-    module producer
-
-        data = Ref{Int}(888)
+        @info(":producer --- unit_idx = $unit_idx")
+        @info(":producer --- unit_size = $(length(global_topology[:producer]))")
+        @info(":producer --- global_idx = $(global_topology[:producer][unit_idx])")
+        @info(":producer --- global_idx_cohort = $(global_topology[:producer])")
+        @info(":producer --- local_idx = $(local_topology[:producer][unit_idx])")
+        @info(":producer --- local_idx_cohort = $(local_topology[:producer])")
+        @info(":producer --- global_topology = $global_topology")
+        @info(":producer --- local_topology = $local_topology")
 
         function produce()
-            data[] = 777
+            @info "PRODUCE! $(global_topology[:consumer])"
         end
         
-        function fetch_data()
-            @info "fetch_data"
-            return data[]
-        end
-
     end
 
-    module consumer
-
-        using ..producer 
-        import Distributed
-        using ..ReadData
+    @unit parallel consumer begin
+        
+        @info(":consumer --- unit_idx = $unit_idx")
+        @info(":consumer --- unit_size = $(length(global_topology[:consumer]))")
+        @info(":consumer --- global_idx = $(global_topology[:consumer][unit_idx])")
+        @info(":consumer --- global_idx_cohort = $(global_topology[:consumer])")
+        @info(":consumer --- local_idx = $(local_topology[:consumer][unit_idx])")
+        @info(":consumer --- local_idx_cohort = $(local_topology[:consumer])")
 
         function consume()
-            @info "CONSUME !"
-            sleep(2)
-            for i in getPlacement(:producer)  #placement[][:producer]
-               x = Distributed.@fetchfrom i producer.fetch_data()
-               println(x)
-            end
+            @info "CONSUME! $(global_topology[:producer])"
+            #@info "**************************** MESSAGE from $msg !"
         end
 
-    end
-
-end
-
-#=
-
-@component ReadData
-
-    @unit producer
-        
-        data = Ref{Int}(888)
-
-        function produce()
-            data[] = 777
-        end
-        
-        function fetch_data()
-            @info "fetch_data"
-            return data[]
-        end
-        
     end
     
-    
-    @unit parallel consumer
-        
-        import Distributed
-
-        function consume()
-            @info "CONSUME !"
-            sleep(2)
-            for i in placement[][:producer]
-               x = Distributed.@fetchfrom i producer.fetch_data()
-               println(x)
-            end
-            println(x)
-        end
-        
-    end
-
 end
 
-=#

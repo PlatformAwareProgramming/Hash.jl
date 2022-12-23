@@ -1,13 +1,15 @@
-
 using Hash
 
-@application cluster module Test2
+using MPI
+MPI.Init()
+
+@application messagepassing Test2 begin
     
     @inner ReadData2
 
-    @unit module main  
+    @unit master begin
 
-        @info :main
+        @info :master
 
         @slice ReadData2.producer
         
@@ -15,41 +17,41 @@ using Hash
         
     end
 
-    @unit parallel module worker1
+    @unit parallel worker1 begin
 
         @inner P
 
-        @info(":worker1 --- unit_idx = $unit_idx")
-        @info(":worker1 --- unit_size = $(length(global_topology[:worker1]))")
-        @info(":worker1 --- global_idx = $(global_topology[:worker1][unit_idx])")
-        @info(":worker1 --- global_idx_cohort = $(global_topology[:worker1])")
-        @info(":worker1 --- local_idx = $(local_topology[:worker1][unit_idx])")
-        @info(":worker1 --- local_idx_cohort = $(local_topology[:worker1])")
+      #  @info(":worker1 --- unit_idx = $unit_idx")
+      #  @info(":worker1 --- unit_size = $(length(global_topology[:worker1]))")
+      #  @info(":worker1 --- global_idx = $(global_topology[:worker1][unit_idx])")
+      #  @info(":worker1 --- global_idx_cohort = $(global_topology[:worker1])")
+      #  @info(":worker1 --- local_idx = $(local_topology[:worker1][unit_idx])")
+      #  @info(":worker1 --- local_idx_cohort = $(local_topology[:worker1])")
 
         @slice ReadData2.consumer
-        @slice P as p_compute      # P.main is the default and "@inner P" is expected to be inside the unit.
+        #@slice P as p_compute      # P.master is the default and "@inner P" is expected to be inside the unit.
         
-        p_compute.do_something(1)
+        P.do_something(1)
         consumer.consume()
         
     end
 
     
-    @unit parallel module worker2
+    @unit parallel worker2 begin
 
         @inner Q
 
-        @info(":worker2 --- unit_idx = $unit_idx")
-        @info(":worker2 --- unit_size = $(length(global_topology[:worker2]))")
-        @info(":worker2 --- global_idx = $(global_topology[:worker2][unit_idx])")
-        @info(":worker2 --- global_idx_cohort = $(global_topology[:worker2])")
-        @info(":worker2 --- local_idx = $(local_topology[:worker2][unit_idx])")
-        @info(":worker2 --- local_idx_cohort = $(local_topology[:worker2])")
+     #   @info(":worker2 --- unit_idx = $unit_idx")
+     #   @info(":worker2 --- unit_size = $(length(global_topology[:worker2]))")
+     #   @info(":worker2 --- global_idx = $(global_topology[:worker2][unit_idx])")
+     #   @info(":worker2 --- global_idx_cohort = $(global_topology[:worker2])")
+     #   @info(":worker2 --- local_idx = $(local_topology[:worker2][unit_idx])")
+     #   @info(":worker2 --- local_idx_cohort = $(local_topology[:worker2])")
 
         @slice ReadData2.consumer
-        @slice Q as q_compute       # Q.main is the default and "@inner Q" is expected to be inside the unit.
+#        @slice Q as q_compute       # Q.master is the default and "@inner Q" is expected to be inside the unit.
 
-        q_compute.do_something(0)
+        Q.do_something(0)
         consumer.consume()
         
     end

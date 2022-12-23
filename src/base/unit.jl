@@ -2,50 +2,38 @@
 # Licensed under the MIT License. See LICENCE in the project root.
 # ------------------------------------------------------------------
 
-macro unit(mod, uids)
+macro unit(uname, block, uids)
 
-    @assert mod.head == :module
-
-    flag  = mod.args[1]
-    uname = mod.args[2]
-    block = mod.args[3]
+    @assert block.head == :block
 
     #@assert haskey(uids,uname) && length(uids[uname]) == 1
 
-    return unit_macro(current_level[], flag, uname, block, uids)
+    return unit_macro(current_level[], true, uname, block, uids)
 
 end
 
-macro unit(modifier, mod, uids)
+macro unit(modifier, uname, block, uids)
 
-    @assert mod.head == :module
+    @assert block.head == :block
     
-    flag  = mod.args[1]
-    uname = mod.args[2]
-    block = mod.args[3]
-
-    @info "unit $uname $uids rank=$rank"
+    @info "unit $uname $uids rank=$(myrank(current_level[]))"
 
     #@assert modifier == :parallel || (modifier == :single && haskey(uids,uname) && length(uids[uname]) == 1)
 
-    return unit_macro(current_level[], flag, uname, block, uids)
+    return unit_macro(current_level[], true, uname, block, uids)
 
 end
 
-macro unit(modifier, count, mod, uids)
+macro unit(modifier, count, uname, block, uids)
 
-    @assert mod.head == :module
+    @assert block.head == :block
     @assert count.head == :(=) && count.args[1] == :count
 
-    flag  = mod.args[1]
-    uname = mod.args[2]
-    block = mod.args[3]
-
-    @info "unit $uname $uids rank=$rank"
+    @info "unit $uname $uids rank=$(myrank(current_level[]))"
 
     #@assert modifier == :parallel || (modifier == :single && haskey(uids,uname) && length(uids[uname]) == 1)
 
-    return unit_macro(current_level[], flag, uname, block, uids)
+    return unit_macro(current_level[], true, uname, block, uids)
 
 end
 
