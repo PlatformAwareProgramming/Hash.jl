@@ -13,9 +13,10 @@ function placement_expr(::Type{RemoteCall}, expr)
 end
 
 function determine_current_args(::Type{RemoteCall}, ::Val{1}, ::Val{true}, block)
+    current_args = read("placement", String)
     for w in workers()
-        @info "send placement $(current_args[]) to $w"
-        @spawnat w recv_current_args(current_args[])
+        @info "send placement $(current_args) to $w"
+        @spawnat w recv_current_args(current_args)
     end
 end
 

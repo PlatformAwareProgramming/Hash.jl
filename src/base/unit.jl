@@ -37,15 +37,7 @@ macro unit(modifier, count, uname, block, uids)
 
 end
 
-function unit_macro(level, flag, uname, block, global_uids)
-
-    @assert block.head == :block    
-    
-    enclosing_unit[] = uname
-
-    level_parent = level_dict[][parent_component()]
-    is_level_top = level_parent != level
-
+function calculate_local_uids(global_uids)
     l = Vector()
     for (k,v) in global_uids            
         for j in v 
@@ -67,6 +59,19 @@ function unit_macro(level, flag, uname, block, global_uids)
             push!(local_uids[k], d[j])
         end
     end
+end
+
+
+function unit_macro(level, flag, uname, block, global_uids)
+
+    @assert block.head == :block    
+    
+    enclosing_unit[] = uname
+
+    level_parent = level_dict[][parent_component()]
+    is_level_top = level_parent != level
+
+    local_uids = calculate_local_uids(global_uids)
         
     unit_uids = get(global_uids, uname, [])     
 

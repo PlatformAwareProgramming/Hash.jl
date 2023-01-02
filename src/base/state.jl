@@ -28,7 +28,6 @@ end
 
 function pushComponent(cname)
     pushfirst!(components[], cname)
-    @info args_dict[]
     current_args[] = args_dict[][current_component()]
     current_depth[] += 1 # depth_dict[][current_component()]  
     current_level[] = level_dict[][current_component()]  

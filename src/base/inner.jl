@@ -8,7 +8,6 @@ end
 
 function inner_component(c)    
     cname = "$(string(c)).jl"
-    @info "CURRENT ARGS for $cname is $(current_args[])"
 
     return esc(:(include($cname)))
 end

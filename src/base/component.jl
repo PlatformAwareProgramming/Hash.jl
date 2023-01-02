@@ -28,10 +28,10 @@ end
 
 macro application(level, cname, block)
     args_dict[]["Main"] = ""
-    args_dict[]["Main.$cname"] = read("placement", String)
-    current_level[] = level_type(Val(level))
+    args_dict[]["Main.$cname"] = "" #nothing #read("placement", String)
+    # current_level[] = level_type(Val(level))
     level_dict[]["Main"] = current_level[]  
-    component_macro(current_level[], cname, block)
+    component_macro(level_type(Val(level)), cname, block)
 end
 
 saved_enclosing_unit = Ref{Any}()
@@ -72,13 +72,13 @@ function component_macro(level::Type{<:AnyLevel}, cname, block)
             end
         end
         args_dict[][cname] = l
-    end 
+    end
     
     insert_unit_uids(block)
 
     insertAdditionalStatements(level, Val(is_level_transition), block)
 
-    @info "................ $cname $(typeof(cname))"
+    @info "component macro end................ $cname $(typeof(cname))"
 
     #@info Expr(:module, true, cname, block)
     return esc(Expr(:module, true, cname, block))
@@ -120,6 +120,7 @@ function collect_units(level::Type{<:AnyLevel}, block)
     
     for st in block.args
         if (typeof(st) == Expr && st.head == :macrocall && !isempty(st.args) && string(st.args[1]) == "@unit")
+            @info st
             l = length(st.args)
             unit_count::Int = -1
             if l==4

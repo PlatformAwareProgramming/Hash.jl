@@ -10,7 +10,6 @@ start_index(::Type{MessagePassing}) = 0
 function placement_expr(::Type{MessagePassing}, expr)
     size = MPI.Comm_size(MPI.COMM_WORLD)
     expr_result = :(let S = $(size-1); $expr end)
-    @info "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ placement_expr: $expr_result"
     return expr_result
 end
 
@@ -37,7 +36,8 @@ function determine_current_args(level::Type{MessagePassing}, ::Val{id}, ::Val{tr
         l = l * "$(ts[i+1])\n"
     end
 
-    current_args[] = l
+#    current_args[] = l
+    return l
 end
  
 function determine_current_args(::Type{MessagePassing}, ::Val{0}, ::Val{false}, block)

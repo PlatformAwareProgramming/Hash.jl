@@ -11,6 +11,7 @@ function unit_macro_result(level::Type{Manycore}, ::Val{true}, ::Val{:master}, u
     idx = 0
     pushfirst!(block.args, :(global_topology = $global_uids)) # global_topology
     pushfirst!(block.args, :(local_topology = $local_uids))   # local_topology
+    @info "--- unit_idx=$idx"
     pushfirst!(block.args, :(unit_idx = $idx))                # unit_idx
     pushfirst!(block.args, :(using Hash))
     pushfirst!(block.args, Meta.parse("using ..$(current_component())"))

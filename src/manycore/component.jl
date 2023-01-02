@@ -23,6 +23,7 @@ function determine_current_args(level::Type{Manycore}, id, ::Val{true}, block)
     end
 
     current_args[] = l
+    return l
 end
 
 function determine_current_args(::Type{Manycore}, id, ::Val{false}, block)

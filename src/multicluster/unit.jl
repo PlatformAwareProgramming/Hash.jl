@@ -16,7 +16,7 @@ end
 function mpibcast_rank()
     MPI.Init()
     mpi_rank = MPI.Comm_rank(MPI.COMM_WORLD)
-    if (mpi_rank == 0)
+    if mpi_rank == 0
         @info "BROACAST ROOT BEGIN"        
         rank = myrank(Multicluster)
         @info "BROACAST ROOT END $rank"        
@@ -34,12 +34,13 @@ function myrank(::Type{Multicluster})
     if "mpi" in ARGS
         lock(myrank_set[]) do 
             while myrank_[] < 0
-                @info "WAIT RANK !!!!!!!!!!!!!!!!!!!!!!!!!!!1" 
+                @info "WAIT RANK !!!!!!!!!!!!!!!!!!!!!!!!!!!" 
                 wait(myrank_set[])
             end    
         end
     else
         myrank_[] = myid()
+        @info "MY ID ************* is $(myrank_[])"
     end
     myrank_[]
 end
