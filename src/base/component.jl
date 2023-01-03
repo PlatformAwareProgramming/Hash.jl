@@ -28,8 +28,7 @@ end
 
 macro application(level, cname, block)
     args_dict[]["Main"] = ""
-    args_dict[]["Main.$cname"] = "" #nothing #read("placement", String)
-    # current_level[] = level_type(Val(level))
+    args_dict[]["Main.$cname"] = ""
     level_dict[]["Main"] = current_level[]  
     component_macro(level_type(Val(level)), cname, block)
 end
@@ -38,11 +37,8 @@ saved_enclosing_unit = Ref{Any}()
 
 function component_macro(level::Type{<:AnyLevel}, cname, block)
 
-    #@assert level <: current_level[]
-
     is_level_transition = level != current_level[]
     
-#    current_component_name = is_level_transition ? "$(current_component()).$(enclosing_unit[]).$cname" : "$(current_component()).$cname"
     current_component_name = "$(current_component()).$cname"
     @info "************************** $current_component_name $is_level_transition $level $(current_level[])"
 
@@ -172,25 +168,9 @@ function collect_units(level::Type{<:AnyLevel}, block)
                 uname = st.args[5]
                 @assert(modifier == :parallel)
             else
-                @info "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! $(st.args)"
                 modifier = nothing
                 uname = nothing
             end
-
-
-            #uname = nothing
-            #modifier = nothing
-            #unit_count::Int = -1
-            #for st2 in st.args[2:length(st.args)]
-            #    if typeof(st2)==Expr && st2.head==:module
-            #        uname = st2.args[2]
-            #    elseif typeof(st2)==Symbol && st2 in [:single, :parallel]
-            #        modifier = st2
-            #    elseif (typeof(st2)==Expr && st2.head == :(=) && typeof(st2.args[1])==Symbol && st2.args[1] == :count)
-            #        expr_n = placement_expr(level, st2.args[2])
-            #        unit_count = eval(expr_n)
-            #    end
-            #end
             push!(r, (uname, modifier, unit_count))  
         end
     end
@@ -220,12 +200,8 @@ end
 
 function calculate_placement(level::Type{<:AnyLevel}, placement_string::String)
 
-    @info "MAIN PLACEMENT 1 <><><><><><><><><><><><><><><> $placement_string"
-
     main_placement = split(placement_string, "\n")
     
-    @info "MAIN PLACEMENT 2 <><><><><><><><><><><><><><><> $main_placement"
-
     empty!(placement_inv[])
 
     id_count = start_index(level)
@@ -251,8 +227,6 @@ function calculate_placement(level::Type{<:AnyLevel}, placement_string::String)
     lock(has_placement) do
         notify(has_placement)
     end
-
-    @info "PLACEMENT INV 3 <><><><>><><>><><><><><><><><><> $(placement_inv[])"
     
 end
 

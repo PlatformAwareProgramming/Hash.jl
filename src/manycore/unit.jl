@@ -9,15 +9,9 @@ function unit_macro_result(level::Type{Manycore}, ::Val{true}, ::Val{:master}, u
     @info "0 ============================ master $level unit_uids=$unit_uids"
 
     idx = 0
-#    pushfirst!(block.args, :(global_topology = $global_uids)) # global_topology
-#    pushfirst!(block.args, :(local_topology = $local_uids))   # local_topology
-    @info "--- unit_idx=$idx"
     pushfirst!(block.args, :(unit_idx = $idx))                # unit_idx
-    #pushfirst!(block.args, :(using Hash))
-    #pushfirst!(block.args, Meta.parse("using ..$(current_component())"))
     push!(block.args, Meta.parse("$(current_component()).notify_unit_finished()"))    
    
-    #return Expr(:module, flag, :master, block)
     return Expr(:macrocall, Threads.var"@spawn", nothing, block)
 end
 
@@ -30,8 +24,6 @@ function unit_macro_result(level::Type{Manycore}, ::Val{true}, ::Val{uname}, uni
     
     for idx in unit_uids
         args = Vector(); map(a-> push!(args, a), block.args) 
-#        pushfirst!(args, :(global_topology = $global_uids)) # global_topology
-#        pushfirst!(args, :(local_topology = $local_uids))   # local_topology
         pushfirst!(args, :(unit_idx = $idx))                # unit_idx
         push!(args, Meta.parse("$(current_component()).notify_unit_finished()"))    
         push!(unit_threads, Expr(:macrocall, Threads.var"@spawn", nothing, Expr(:block, args...)))
@@ -43,8 +35,6 @@ function unit_macro_result(level::Type{Manycore}, ::Val{true}, ::Val{uname}, uni
     map(s->push!(block.args, s), slices)
     push!(block.args, Expr(:block, unit_threads...))
 
-    #@info Expr(:module, flag, uname, block)
-    #return Expr(:module, flag, uname, block)
     return block
 end
 
@@ -71,13 +61,10 @@ function unit_macro_result(level::Type{Manycore}, ::Val{false}, ::Val{uname}, un
 
     @info "2 ============================ $uname $level $unit_uids $(myrank(level))"
     
-#    pushfirst!(block.args, :(global_topology = $global_uids)) # global_topology
-#    pushfirst!(block.args, :(local_topology = $local_uids))   # local_topology
     pushfirst!(block.args, :(using Hash))
     pushfirst!(block.args, Meta.parse("using ..$(current_component())"))
     
     @info "$(myrank(level)): ++++++++++++++++++ UNIT $uname of $(current_component()) at level $level"
-    #return Expr(:module, flag, uname, block)
     return block
 
 end
