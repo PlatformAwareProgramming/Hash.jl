@@ -4,34 +4,34 @@
 
 myrank(::Type{Manycore}) = 0
 
-function unit_macro_result(level::Type{Manycore}, ::Val{true}, ::Val{:master}, unit_uids, flag, block, global_uids, local_uids)
+function unit_macro_result(level::Type{Manycore}, ::Val{true}, ::Val{:master}, unit_uids, flag, block#=, global_uids, local_uids=#)
 
-    @info "0 ============================ master $level unit_uids=$unit_uids global_uids=$global_uids local_uids=$local_uids"
+    @info "0 ============================ master $level unit_uids=$unit_uids"
 
     idx = 0
-    pushfirst!(block.args, :(global_topology = $global_uids)) # global_topology
-    pushfirst!(block.args, :(local_topology = $local_uids))   # local_topology
+#    pushfirst!(block.args, :(global_topology = $global_uids)) # global_topology
+#    pushfirst!(block.args, :(local_topology = $local_uids))   # local_topology
     @info "--- unit_idx=$idx"
     pushfirst!(block.args, :(unit_idx = $idx))                # unit_idx
-    pushfirst!(block.args, :(using Hash))
-    pushfirst!(block.args, Meta.parse("using ..$(current_component())"))
+    #pushfirst!(block.args, :(using Hash))
+    #pushfirst!(block.args, Meta.parse("using ..$(current_component())"))
     push!(block.args, Meta.parse("$(current_component()).notify_unit_finished()"))    
    
     #return Expr(:module, flag, :master, block)
-    return block
+    return Expr(:macrocall, Threads.var"@spawn", nothing, block)
 end
 
-function unit_macro_result(level::Type{Manycore}, ::Val{true}, ::Val{uname}, unit_uids, flag, block, global_uids, local_uids) where {uname}
+function unit_macro_result(level::Type{Manycore}, ::Val{true}, ::Val{uname}, unit_uids, flag, block#=, global_uids, local_uids=#) where {uname}
 
-    @info "1 ============================ $uname $(uname == :master) $level unit_uids=$unit_uids global_uids=$global_uids local_uids=$local_uids"
+    @info "1 ============================ $uname $(uname == :master) $level unit_uids=$unit_uids"
 
     slices = extract_slices(block.args)
     unit_threads = Vector()
     
     for idx in unit_uids
         args = Vector(); map(a-> push!(args, a), block.args) 
-        pushfirst!(args, :(global_topology = $global_uids)) # global_topology
-        pushfirst!(args, :(local_topology = $local_uids))   # local_topology
+#        pushfirst!(args, :(global_topology = $global_uids)) # global_topology
+#        pushfirst!(args, :(local_topology = $local_uids))   # local_topology
         pushfirst!(args, :(unit_idx = $idx))                # unit_idx
         push!(args, Meta.parse("$(current_component()).notify_unit_finished()"))    
         push!(unit_threads, Expr(:macrocall, Threads.var"@spawn", nothing, Expr(:block, args...)))
@@ -43,7 +43,9 @@ function unit_macro_result(level::Type{Manycore}, ::Val{true}, ::Val{uname}, uni
     map(s->push!(block.args, s), slices)
     push!(block.args, Expr(:block, unit_threads...))
 
-    return Expr(:module, flag, uname, block)
+    #@info Expr(:module, flag, uname, block)
+    #return Expr(:module, flag, uname, block)
+    return block
 end
 
 function extract_slices(args)
@@ -65,16 +67,17 @@ function extract_slices(args)
     return slices
 end
 
-function unit_macro_result(level::Type{Manycore}, ::Val{false}, ::Val{uname}, unit_uids, flag, block, global_uids, local_uids) where {uname}
+function unit_macro_result(level::Type{Manycore}, ::Val{false}, ::Val{uname}, unit_uids, flag, block#=, global_uids, local_uids=#) where {uname}
 
     @info "2 ============================ $uname $level $unit_uids $(myrank(level))"
     
-    pushfirst!(block.args, :(global_topology = $global_uids)) # global_topology
-    pushfirst!(block.args, :(local_topology = $local_uids))   # local_topology
+#    pushfirst!(block.args, :(global_topology = $global_uids)) # global_topology
+#    pushfirst!(block.args, :(local_topology = $local_uids))   # local_topology
     pushfirst!(block.args, :(using Hash))
     pushfirst!(block.args, Meta.parse("using ..$(current_component())"))
     
     @info "$(myrank(level)): ++++++++++++++++++ UNIT $uname of $(current_component()) at level $level"
-    return Expr(:module, flag, uname, block)
+    #return Expr(:module, flag, uname, block)
+    return block
 
 end

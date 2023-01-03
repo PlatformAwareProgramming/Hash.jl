@@ -85,13 +85,50 @@ function component_macro(level::Type{<:AnyLevel}, cname, block)
 
 end
 
+function calculate_local_uids(global_uids)
+    l = Vector()
+    for (k,v) in global_uids            
+        for j in v 
+            push!(l, j)
+        end
+    end
+    
+    sort!(l)
+    
+    d = Dict()
+    for i in 1:length(l)
+        d[l[i]] = i-1
+    end
+
+    local_uids = Dict()
+    for (k,v) in global_uids
+        local_uids[k] = Vector()
+        for j in v 
+            push!(local_uids[k], d[j])
+        end
+    end
+
+    return local_uids
+end
+
+
 function insertAdditionalStatements(::Type{<:AnyLevel}, ::Val{true}, block)
+    global_uids = placement_inv[]
+    local_uids = calculate_local_uids(global_uids)
+
+    pushfirst!(block.args, :(global_topology = $global_uids)) # global_topology
+    pushfirst!(block.args, :(local_topology = $local_uids))   # local_topology
     pushfirst!(block.args, :(using Hash))
     push!(block.args,:(Hash.popComponent()))
     push!(block.args, Meta.parse("Hash.enclosing_unit[] = :($(saved_enclosing_unit[]))"))
 end
 
 function insertAdditionalStatements(::Type{<:AnyLevel}, ::Val{false}, block)
+    global_uids = placement_inv[]
+    local_uids = calculate_local_uids(global_uids)
+
+    pushfirst!(block.args, :(global_topology = $global_uids)) # global_topology
+    pushfirst!(block.args, :(local_topology = $local_uids))   # local_topology
     pushfirst!(block.args, :(using Hash))
     push!(block.args,:(Hash.popComponent()))
 end
@@ -120,7 +157,6 @@ function collect_units(level::Type{<:AnyLevel}, block)
     
     for st in block.args
         if (typeof(st) == Expr && st.head == :macrocall && !isempty(st.args) && string(st.args[1]) == "@unit")
-            @info st
             l = length(st.args)
             unit_count::Int = -1
             if l==4
@@ -300,13 +336,22 @@ function collect_inner_components(block)
 
 end
 
+
 function insert_unit_uids(block)
     
     @assert (block.head == :block)
     
     for st in block.args
         if (typeof(st) == Expr && st.head == :macrocall && !isempty(st.args) && string(st.args[1]) == "@unit")    
-            push!(st.args, copy(placement_inv[]))
+            l = length(st.args)
+            if l==4
+                uname = st.args[3]
+            elseif l==5
+                uname = st.args[4]
+            elseif l==6
+                uname = st.args[5]
+            end
+            push!(st.args, copy(get(placement_inv[], uname, [])))
         end
     end
                

@@ -1,5 +1,7 @@
 using BenchmarkTools
 
+block_size = [25, 50, 200]
+
 function mm(::Val{0}, size, a, b, c, a_x, a_y, b_x, b_y)
 
     limit_i   = a_x + size; 
@@ -57,8 +59,6 @@ function main()
 
     N = parse(Int64, ARGS[1])
     P = parse(Int64, ARGS[2])
-
-    global block_size = [25, 50, 200]
 
    @info "start ... N=$N P=$P"
  
