@@ -10,9 +10,11 @@ function unit_macro_result(level::Type{Manycore}, ::Val{true}, ::Val{:master}, u
 
     idx = 0
     pushfirst!(block.args, :(unit_idx = $idx))                # unit_idx
-    push!(block.args, Meta.parse("$(current_component()).notify_unit_finished()"))    
+    #push!(block.args, Meta.parse("$(current_component()).notify_unit_finished()"))    
    
-    return Expr(:macrocall, Threads.var"@spawn", nothing, block)
+    #return Expr(:macrocall, Threads.var"@spawn", nothing, block)
+    #@info block
+    return block
 end
 
 function unit_macro_result(level::Type{Manycore}, ::Val{true}, ::Val{uname}, unit_uids, flag, block#=, global_uids, local_uids=#) where {uname}
@@ -25,7 +27,7 @@ function unit_macro_result(level::Type{Manycore}, ::Val{true}, ::Val{uname}, uni
     for idx in unit_uids
         args = Vector(); map(a-> push!(args, a), block.args) 
         pushfirst!(args, :(unit_idx = $idx))                # unit_idx
-        push!(args, Meta.parse("$(current_component()).notify_unit_finished()"))    
+        #push!(args, Meta.parse("$(current_component()).notify_unit_finished()"))
         push!(unit_threads, Expr(:macrocall, Threads.var"@spawn", nothing, Expr(:block, args...)))
     end
 
@@ -35,6 +37,7 @@ function unit_macro_result(level::Type{Manycore}, ::Val{true}, ::Val{uname}, uni
     map(s->push!(block.args, s), slices)
     push!(block.args, Expr(:block, unit_threads...))
 
+    #@info block
     return block
 end
 

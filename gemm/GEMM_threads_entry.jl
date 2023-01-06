@@ -1,6 +1,6 @@
 using Hash
 
-@application manycore GEMM_2_entry begin
+@computation manycore GEMM_threads_entry begin
 
     @info "GEMM_2 # -- global_topology=$global_topology"
     @info "GEMM_2 # -- local_topology=$local_topology"
@@ -18,7 +18,7 @@ using Hash
         go2_[][idx] = Threads.Condition()
     end
 
-    go_caller() = begin 
+    go_caller() = begin
                     for idx in local_topology[:worker]
                         go1_condition[][idx] = true 
                         lock(go1_[][idx]) do 
@@ -59,7 +59,6 @@ using Hash
     b = Ref{Matrix{Float64}}()
     c = Ref{Matrix{Float64}}()
                 
-    N = 1000
 
     @unit master begin
     
@@ -68,10 +67,15 @@ using Hash
         function multiply(alfa0, beta0, a0, b0, c0)
             alpha[] = alfa0; beta[] = beta0
             a[] = a0; b[] = b0; c[] = c0
-
+    
+            @info "go caller .................. 1"
             go_caller()
+            @info "go caller .................. 2"
             wait_go()
         end
+    
+       #= 
+         N = 1000
 
         aa = ones(N,N)
         bb = ones(N,N)
@@ -83,17 +87,17 @@ using Hash
         @info c[][N,N]
         @info c[][1,N]
         @info c[][N,1]
-
+=#
     end
 
-    @inner GEMM_2
+    @inner GEMM_threads
 
     @unit parallel count=T worker begin
     
         @info "GEMM_2 worker -- unit_idx=$unit_idx"
 
-        @slice GEMM_2.gemm 
-        
+        @slice GEMM_threads.gemm 
+
         while true 
             go_callee(unit_idx)
             gemm.multiply(unit_idx, alpha[], beta[], a[], b[], c[])

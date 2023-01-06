@@ -30,11 +30,11 @@ function determine_current_args(::Type{Manycore}, id, ::Val{false}, block)
     nothing
 end
 
-function insertAdditionalStatements(::Type{Manycore}, ::Val{true}, block)
-    pushfirst!(block.args, Meta.parse("function notify_unit_finished() Threads.atomic_add!(wait_unit_threads_counter, 1); if $(total_count[]) <= wait_unit_threads_counter[] lock(wait_unit_threads[]) do \n notify(wait_unit_threads[]) end end end"))
-    pushfirst!(block.args, :(wait_unit_threads_counter = Threads.Atomic{Int}(0)))
-    pushfirst!(block.args, :(wait_unit_threads = Ref{Threads.Condition}(Threads.Condition())))
-    push!(block.args, Meta.parse("lock(wait_unit_threads[]) do \n while wait_unit_threads_counter[]<$(total_count[])  wait(wait_unit_threads[]) end end"))
-    insertAdditionalStatements(AnyLevel, Val(true), block)
-end
+#function insertAdditionalStatements(::Type{Manycore}, ::Val{true}, block)
+    #pushfirst!(block.args, Meta.parse("function notify_unit_finished() Threads.atomic_add!(wait_unit_threads_counter, 1); if $(total_count[]) <= wait_unit_threads_counter[] lock(wait_unit_threads[]) do \n notify(wait_unit_threads[]) end end end"))
+    #pushfirst!(block.args, :(wait_unit_threads_counter = Threads.Atomic{Int}(0)))
+    #pushfirst!(block.args, :(wait_unit_threads = Ref{Threads.Condition}(Threads.Condition())))
+    #push!(block.args, Meta.parse("lock(wait_unit_threads[]) do \n while wait_unit_threads_counter[]<$(total_count[])  wait(wait_unit_threads[]) end end"))
+#    insertAdditionalStatements(AnyLevel, Val(true), block)
+#end
 

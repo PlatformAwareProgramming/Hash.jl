@@ -9,24 +9,12 @@ start_index(::Type{MessagePassing}) = 0
 
 function placement_expr(::Type{MessagePassing}, expr)
     size = MPI.Comm_size(MPI.COMM_WORLD)
-    expr_result = :(let S = $(size-1); $expr end)
+    expr_result = :(let N = $(size-1); $expr end)
     return expr_result
 end
 
-#function determine_current_args(::Type{MessagePassing}, ::Val{0}, ::Val{true}, block)
-   # comm = MPI.COMM_WORLD
-   # comm_size = MPI.Comm_size(comm)
-   # for w in 1:comm_size-1
-   #     @info "send placement 1 to $w -- $(current_args[])"
-   #     MPI.send(current_args[], comm; dest=w, tag=99)
-   # end
-#end
-
 function determine_current_args(level::Type{MessagePassing}, ::Val{id}, ::Val{true}, block) where id
-    # comm = MPI.COMM_WORLD
-    # current_args[] = MPI.recv(comm; source=0, tag=99)
-    # @info "RECEIVE PLACEMENT FROM 0 $(current_args[])"
-
+ 
     units = collect_units(level, block)
 
     total_count[], ts = distribute_units(units)
@@ -36,12 +24,8 @@ function determine_current_args(level::Type{MessagePassing}, ::Val{id}, ::Val{tr
         l = l * "$(ts[i+1])\n"
     end
 
-#    current_args[] = l
+    current_args[] = l
     return l
-end
- 
-function determine_current_args(::Type{MessagePassing}, ::Val{0}, ::Val{false}, block)
-    nothing
 end
 
 

@@ -10,11 +10,11 @@ function unit_macro_result(level::Type{MessagePassing}, ::Val{is_level_top}, ::V
     result = if !isnothing(idx[1])
                 pushfirst!(block.args, :(unit_idx = $(idx[1])))              # unit_idx
                 push!(block.args, :(Hash.reset_enclosing_unit())) 
-                @info "$(myrank(level)): ++++++++++++++++++ UNIT $uname of $(current_component()) at level $level"
+                @info "$(myrank(level)): ++++++++++++++++++ UNIT $uname of $(current_component()) at level $level --- unit_idx = $(idx[1])"
                 block
             else
                 Hash.reset_enclosing_unit()
-                @info "$(myrank(level)): ------------------ UNIT $uname of $(current_component()) at level $level"
+                @info "$(myrank(level)): ------------------ UNIT $uname of $(current_component()) at level $level --- unit_idx = $(idx[1])"
                 nothing
             end
     return result

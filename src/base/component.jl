@@ -26,16 +26,15 @@ macro computation(cname, block)
     component_macro(AnyLevel, cname, block)
 end
 
-macro application(level, cname, block)
-    args_dict[]["Main"] = ""
-    args_dict[]["Main.$cname"] = ""
-    level_dict[]["Main"] = current_level[]  
-    component_macro(level_type(Val(level)), cname, block)
-end
-
 saved_enclosing_unit = Ref{Any}()
 
 function component_macro(level::Type{<:AnyLevel}, cname, block)
+
+    if (isempty(args_dict[]))
+        args_dict[]["Main"] = ""
+        args_dict[]["Main.$cname"] = ""
+        level_dict[]["Main"] = current_level[]  
+    end
 
     is_level_transition = level != current_level[]
     
@@ -62,6 +61,7 @@ function component_macro(level::Type{<:AnyLevel}, cname, block)
         l = ""
         for (sname, uname) in us
             sname_string = unquotenode(sname)
+            @info placement_inv[]
             ids = placement_inv[][uname]
             for id in ids
                 l = l * "$id $sname_string\n"
@@ -76,7 +76,9 @@ function component_macro(level::Type{<:AnyLevel}, cname, block)
 
     @info "component macro end................ $cname $(typeof(cname))"
 
-    #@info Expr(:module, true, cname, block)
+    if (cname == :GEMM_mpi_entry)
+        @info Expr(:module, true, cname, block)
+    end
     return esc(Expr(:module, true, cname, block))
 
 end
@@ -131,8 +133,6 @@ end
 
 function placement_units(level::Type{<:AnyLevel}, id, level_transition, block)
        
-    @info "CALCULATE PLACEMENT 1 $(current_depth[])"
-
     determine_current_args(level, id, level_transition, block)
     
     calculate_placement(level, current_args[]) 

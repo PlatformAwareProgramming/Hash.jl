@@ -8,6 +8,5 @@ end
 
 function inner_component(c)    
     cname = "$(string(c)).jl"
-
     return esc(:(include($cname)))
 end
