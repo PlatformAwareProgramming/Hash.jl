@@ -1,6 +1,9 @@
 using Hash
 using MPI
 
+function stop()
+end
+
 MPI.Init()
 
 @computation messagepassing GEMM_mpi_entry begin
@@ -50,19 +53,19 @@ MPI.Init()
     
     @unit master begin    
 
-        @info "======>>>> MASTER unit_idx = $unit_idx, global_topology = $global_topology, local_topology = $local_topology"
+        @info "======>>>> MASTER unit_idx = $unit_idx, topology = $topology, local_topology = $local_topology"
 
         using MPI
 
-        function multiply!(X, Y, M, N, P, ma, n, pb, mc, pc, a, b, c)
+        function multiply!(X, Y, M, N, P, ma, n, pb, mc, pc, alpha, beta, a, b, c)
 
             world_comm = MPI.COMM_WORLD
             world_group = MPI.Comm_group(world_comm)
             workers_group = MPI.Group_excl(world_group, Int32[0])
             MPI.Comm_create(world_comm, workers_group)
 
-            root = global_topology[:master][1]
-            MPI.bcast((X, Y, M, N, P, ma, n, pb, mc, pc), root, world_comm)
+            root = topology[:master][1]
+            MPI.bcast((X, Y, M, N, P, ma, n, pb, mc, pc, alpha, beta), root, world_comm)
 
             @info "$unit_idx: SCATTER a - master - begin"
             block_cyclic_2D_scatter_master(world_comm, X, Y, M, N, ma, n, a, 111)
@@ -83,14 +86,11 @@ MPI.Init()
 
     @inner GEMM_mpi
 
-    alpha = 1.0
-    beta  = 1.0
-
     @unit parallel count=N worker begin
 
         using MPI
 
-        @info "======>>>> WORKER unit_idx = $unit_idx, global_topology = $global_topology, local_topology = $local_topology"
+        @info "======>>>> WORKER unit_idx = $unit_idx, topology = $topology, local_topology = $local_topology"
 
         @slice GEMM_mpi.gemm
 
@@ -99,30 +99,35 @@ MPI.Init()
         workers_group = MPI.Group_excl(world_group, Int32[0])
         workers_comm = MPI.Comm_create(world_comm, workers_group)
 
-        root = global_topology[:master][1]
-        (X, Y, M, N, P, ma, n, pb, mc, pc) = MPI.bcast(nothing, world_comm)
+        root = topology[:master][1]
+        (X, Y, M, N, P, ma, n, pb, mc, pc, alpha, beta) = MPI.bcast(nothing, world_comm)
 
+        @info "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% $((X, Y, M, N, P, ma, n, pb, mc, pc))"
+
+        Mx = div(M, X)
+        Ny = div(N, Y)
         Px = div(P, X)
         Py = div(P, Y)
         
-        a = zeros(M, N)
-        b = zeros(Px, N)
-        c = zeros(M, Py)
+        a = zeros(Mx, Ny)
+        b = zeros(Px, Ny)
+        c = zeros(Mx, Py)
 
         @info "$unit_idx: GATHER a - worker - begin"
-        block_cyclic_2D_gather_worker(world_comm, X, Y, M, N, ma, n, a, 111)
+        block_cyclic_2D_gather_worker(world_comm, X, Y, Mx, Ny, ma, n, a, 111)
         @info "$unit_idx: GATHER a - worker - end"
 
         @info "$unit_idx: GATHER b - worker - begin"
-        block_cyclic_2D_gather_worker(world_comm, X, Y, Px, N, pb, n, b, 222)
+        block_cyclic_2D_gather_worker(world_comm, X, Y, Px, Ny, pb, n, b, 222)
         @info "$unit_idx: GATHER b - worker - end"
 
-        gemm.multiply(workers_comm, X, Y, pb, pc, alpha, beta, a, b, c)
+        gemm.multiply!(workers_comm, X, Y, pb, pc, alpha, beta, a, b, c)
 
         @info "$unit_idx: SCATTER c -worker - begin"
-        block_cyclic_2D_scatter_worker(world_comm, X, Y, M, Py, mc, pc, c, 333)
+        block_cyclic_2D_scatter_worker(world_comm, X, Y, Mx, Py, mc, pc, c, 333)
         @info "$unit_idx: SCATTER c -worker - end"
 
+        function multiply!(X, Y, M, N, P, ma, n, pb, mc, pc, a, b, c) nothing end
     end
 
 end

@@ -36,7 +36,7 @@ MPI.Init()
         using MPI
 
         const comm = MPI.COMM_WORLD
-        const root = global_topology[:master][]
+        const root = topology[:master][]
 
         function perform()
             @info "begin perform master"
@@ -65,7 +65,7 @@ MPI.Init()
         @info "begin perform slave"
 
         const comm = MPI.COMM_WORLD
-        const root = global_topology[:master][1]
+        const root = topology[:master][1]
 
         function perform()
     

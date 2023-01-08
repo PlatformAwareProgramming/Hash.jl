@@ -1,11 +1,32 @@
-using Hash
-using Distributed
 
-@computation remotecall GEMM_distributed_entry begin
+using MPIClusterManagers, Distributed, MPI
+
+manager = MPIClusterManagers.start_main_loop(MPI_TRANSPORT_ALL)
+function stop()
+    MPIClusterManagers.stop_main_loop(manager)
+end
+
+@everywhere using Hash
+
+@everywhere @computation remotecall GEMM_distributed_entry begin
+
+    using Distributed
+    using MPI
+    MPI.Init()
 
     @unit master begin
 
-        @info "======>>>> unit_idx = $unit_idx, global_topology = $global_topology, local_topology = $local_topology"
+        using Distributed 
+
+        @info "======>>>> master unit_idx = $unit_idx, topology = $topology, local_topology = $local_topology"
+
+        world_comm = MPI.COMM_WORLD
+        world_group = MPI.Comm_group(world_comm)
+        workers_group = MPI.Group_excl(world_group, Int32[0])
+        MPI.Comm_create(world_comm, workers_group)
+
+        @info "............................................................ rank = $(MPI.Comm_rank(world_comm))"
+
 
         function reorder_matrix!(X, Y, M, N, m, n, a)
             aux = zeros(m,n)
@@ -26,52 +47,74 @@ using Distributed
             end
         end
         
-        function multiply!(X, Y, M, N, P, a, b, c)
+        function multiply!(X, Y, M, N, P, ma, n, pb, mc, pc, alpha, beta, a, b, c)
 
-            reorder_matrix!(X, Y, Mg, Ng, ma, n, a)
-            reorder_matrix!(X, Y, Pg, Ng, pb, n, b)
+            @info "MULTIPLY ............................................................"
 
-            for row in 0:X-1
-                for col in 0:Y-1
-                    widx = row * Y + col + 1
-                    wpid = global_topology[:worker][widx]                    
-                    Mx = div(M, X)
-                    Ny = div(N, Y)
-                    Px = div(P, X)
-                    Py = div(P, Y)
-                    rMx = row * Mx
-                    rNy = col * Ny
-                    rPx = row * Px
-                    rPy = col * Py
+            reorder_matrix!(X, Y, M, N, ma, n, a)
+            reorder_matrix!(X, Y, P, N, pb, n, b)
 
-                    buf = @spawnat wpid multiply(a[rMx:rMx+Mx-1,rNy:rNy+Ny-1], b[rPx:rPx+Px-1,rNy:rNy+Ny-1])
-                    
-                    c[rMx:rMx+Mx-1,rPy:rPy+Py-1] = buf
+            @sync begin
+                for row in 0:X-1
+                    for col in 0:Y-1
+                        widx = row * Y + col + 1
+                        wpid = topology[:worker][widx]                    
+                        Mx = div(M, X)
+                        Ny = div(N, Y)
+                        Px = div(P, X)
+                        Py = div(P, Y)
+                        rMx = row * Mx + 1
+                        rNy = col * Ny + 1
+                        rPx = row * Px + 1
+                        rPy = col * Py + 1
 
+                        @info "REMOTE CALL $wpid begin"
+                        #buf = Distributed.@spawnat wpid multiply!(X, Y, Mx, Py, pb, pc, alpha, beta, a[rMx:rMx+Mx-1,rNy:rNy+Ny-1], b[rPx:rPx+Px-1,rNy:rNy+Ny-1])
+                        buf = remotecall(multiply!, wpid, X, Y, Mx, Py, pb, pc, alpha, beta, a[rMx:rMx+Mx-1,rNy:rNy+Ny-1], b[rPx:rPx+Px-1,rNy:rNy+Ny-1])
+                        #buf = remotecall(multiply2, 2)
+                        #@info "REMOTE CALL $wpid end"
+
+                        #@info fetch(buf)
+                        @async c[rMx:rMx+Mx-1,rPy:rPy+Py-1] = fetch(buf)
+
+                    end
                 end
             end
         end
+
     end
 
     @inner GEMM_distributed
 
-    alpha = 1.0
-    beta  = 1.0
 
     @unit parallel count=W worker begin
 
-        @info "======>>>> M=$M, N=$N, Px=$Px, Py=$Py, unit_idx = $unit_idx, global_topology = $global_topology, local_topology = $local_topology"
+        @info "======>>>> worker unit_idx = $unit_idx, topology = $topology, local_topology = $local_topology"
+
+        world_comm = MPI.COMM_WORLD
+        world_group = MPI.Comm_group(world_comm)
+        workers_group = MPI.Group_excl(world_group, Int32[0])
+        workers_comm = MPI.Comm_create(world_comm, workers_group)
+
+        @info "............................................................ rank = $(MPI.Comm_rank(world_comm))"
 
         @slice GEMM_distributed.gemm
+        #@inner GEMM_threads_entry
 
-        function multiply!(X, Y, M, N, a, b)
-            Px = div(Pg, X)
-            Py = div(Pg, Y)
-            
-            c = ???
 
-            gemm.multiply(X, Y, pb, pc, alpha, beta, a, b, c)
+        function multiply!(X, Y, Mx, Py, pb, pc, alpha, beta, a, b)
+             
+            @info "=>=>=>=>=>=> start $unit_idx"
+        
+            c = zeros(Mx, Py)
+
+            @info "AAAAAAAAAx = $(size(a,1)), AAAAAAAAy = $(size(a,2))"
+            @info "BBBBBBBBBx = $(size(b,1)), BBBBBBBBy = $(size(b,2))"
+
+            #=GEMM_threads_entry=#gemm.multiply!(workers_comm, X, Y, pb, pc, alpha, beta, a, b, c)
     
+            @info "=>=>=>=>=>=> finish $unit_idx"
+
             return c
         end
 

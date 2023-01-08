@@ -22,9 +22,9 @@ MPI.Init()
         @inner P
 
       #  @info(":worker1 --- unit_idx = $unit_idx")
-      #  @info(":worker1 --- unit_size = $(length(global_topology[:worker1]))")
-      #  @info(":worker1 --- global_idx = $(global_topology[:worker1][unit_idx])")
-      #  @info(":worker1 --- global_idx_cohort = $(global_topology[:worker1])")
+      #  @info(":worker1 --- unit_size = $(length(topology[:worker1]))")
+      #  @info(":worker1 --- global_idx = $(topology[:worker1][unit_idx])")
+      #  @info(":worker1 --- global_idx_cohort = $(topology[:worker1])")
       #  @info(":worker1 --- local_idx = $(local_topology[:worker1][unit_idx])")
       #  @info(":worker1 --- local_idx_cohort = $(local_topology[:worker1])")
 
@@ -42,9 +42,9 @@ MPI.Init()
         @inner Q
 
      #   @info(":worker2 --- unit_idx = $unit_idx")
-     #   @info(":worker2 --- unit_size = $(length(global_topology[:worker2]))")
-     #   @info(":worker2 --- global_idx = $(global_topology[:worker2][unit_idx])")
-     #   @info(":worker2 --- global_idx_cohort = $(global_topology[:worker2])")
+     #   @info(":worker2 --- unit_size = $(length(topology[:worker2]))")
+     #   @info(":worker2 --- global_idx = $(topology[:worker2][unit_idx])")
+     #   @info(":worker2 --- global_idx_cohort = $(topology[:worker2])")
      #   @info(":worker2 --- local_idx = $(local_topology[:worker2][unit_idx])")
      #   @info(":worker2 --- local_idx_cohort = $(local_topology[:worker2])")
 

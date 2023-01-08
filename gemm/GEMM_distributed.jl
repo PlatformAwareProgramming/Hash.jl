@@ -1,6 +1,9 @@
 
+
 @computation remotecall GEMM_distributed begin
-    
+
+    using MPI
+
     function reduce(comm, X, Y, nblks, i, irow, jcol, pc, c, c_prime)
 
         M = size(c_prime, 1)
@@ -34,13 +37,11 @@
     
     @unit parallel gemm begin
 
-        using MPI
-
         @info "########################## - -begin'"
         @inner GEMM_threads_entry
         @info "########################## - end"
 
-        function multiply(X, Y, pb, pc, alpha, beta, a, b, c)
+        function multiply!(comm, X, Y, pb, pc, alpha, beta, a, b, c)
     
             rank = MPI.Comm_rank(comm)
             @info "my worker rank is $rank"
@@ -59,16 +60,10 @@
         
             for i in 1:X
         
-                @info "outer compute $i"
-
-                GEMM_threads_entry.multiply(alpha, beta, a, b, c_prime)
-
-                @info "outer reduce $i"
+                GEMM_threads_entry.multiply!(alpha, beta, a, b, c_prime)
 
                 # reduce
                 reduce(row_comm, X, Y, nblks, i, irow, jcol, pc, c, c_prime)
-
-                @info "outer shift $i"
 
                 # shift
                 shift(col_comm, X, irow, b)

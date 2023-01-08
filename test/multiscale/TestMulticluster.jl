@@ -9,9 +9,9 @@ using Hash
 
         @info "master"
 
-        @info global_topology[:workerA]
+        @info topology[:workerA]
 
-        for i in global_topology[:workerA]
+        for i in topology[:workerA]
             rr = @remotecall_fetch i TestMulticluster.do_work()
             #rr = fetch(r)
             @info "res = $rr"

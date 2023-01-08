@@ -2,7 +2,7 @@ using Hash
 
 @computation manycore GEMM_threads_entry begin
 
-    @info "GEMM_2 # -- global_topology=$global_topology"
+    @info "GEMM_2 # -- topology=$topology"
     @info "GEMM_2 # -- local_topology=$local_topology"
 
     go1_condition = Ref{Dict{Integer,Bool}}(Dict{Integer,Bool}())
@@ -64,7 +64,7 @@ using Hash
     
         @info "GEMM_2 master -- unit_idx=$unit_idx"
 
-        function multiply(alfa0, beta0, a0, b0, c0)
+        function multiply!(alfa0, beta0, a0, b0, c0)
             alpha[] = alfa0; beta[] = beta0
             a[] = a0; b[] = b0; c[] = c0
     
@@ -100,7 +100,7 @@ using Hash
 
         while true 
             go_callee(unit_idx)
-            gemm.multiply(unit_idx, alpha[], beta[], a[], b[], c[])
+            gemm.multiply!(unit_idx, alpha[], beta[], a[], b[], c[])
             finish_go(unit_idx)
         end
 

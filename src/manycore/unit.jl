@@ -9,6 +9,7 @@ function unit_macro_result(level::Type{Manycore}, ::Val{true}, ::Val{:master}, u
     @info "0 ============================ master $level unit_uids=$unit_uids"
 
     idx = 0
+    #pushfirst!(block.args, :(unit = :master))              # unit name
     pushfirst!(block.args, :(unit_idx = $idx))                # unit_idx
     #push!(block.args, Meta.parse("$(current_component()).notify_unit_finished()"))    
    
@@ -33,6 +34,7 @@ function unit_macro_result(level::Type{Manycore}, ::Val{true}, ::Val{uname}, uni
 
     empty!(block.args)
     push!(block.args, :(using Hash))
+    push!(block.args, Expr(:(=), :unit, Expr(:call, :Symbol, string(uname))))                            # unit name
     push!(block.args, Meta.parse("using ..$(current_component())"))
     map(s->push!(block.args, s), slices)
     push!(block.args, Expr(:block, unit_threads...))
@@ -65,6 +67,7 @@ function unit_macro_result(level::Type{Manycore}, ::Val{false}, ::Val{uname}, un
     @info "2 ============================ $uname $level $unit_uids $(myrank(level))"
     
     pushfirst!(block.args, :(using Hash))
+    pushfirst!(block.args, Expr(:(=), :unit, Expr(:call, :Symbol, string(uname))))                            # unit name
     pushfirst!(block.args, Meta.parse("using ..$(current_component())"))
     
     @info "$(myrank(level)): ++++++++++++++++++ UNIT $uname of $(current_component()) at level $level"

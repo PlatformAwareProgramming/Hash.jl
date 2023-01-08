@@ -76,9 +76,9 @@ function component_macro(level::Type{<:AnyLevel}, cname, block)
 
     @info "component macro end................ $cname $(typeof(cname))"
 
-    if (cname == :GEMM_mpi_entry)
-        @info Expr(:module, true, cname, block)
-    end
+   # if (cname == :GEMM_mpi_entry)
+   #     @info Expr(:module, true, cname, block)
+  #  end
     return esc(Expr(:module, true, cname, block))
 
 end
@@ -114,8 +114,8 @@ function insertAdditionalStatements(::Type{<:AnyLevel}, ::Val{true}, block)
     global_uids = placement_inv[]
     local_uids = calculate_local_uids(global_uids)
 
-    pushfirst!(block.args, :(global_topology = $global_uids)) # global_topology
-    pushfirst!(block.args, :(local_topology = $local_uids))   # local_topology
+    pushfirst!(block.args, :(local_topology = copy($local_uids)))   # local_topology
+    pushfirst!(block.args, :(topology = copy($global_uids)))        # topology
     pushfirst!(block.args, :(using Hash))
     push!(block.args,:(Hash.popComponent()))
     push!(block.args, Meta.parse("Hash.enclosing_unit[] = :($(saved_enclosing_unit[]))"))
@@ -125,8 +125,8 @@ function insertAdditionalStatements(::Type{<:AnyLevel}, ::Val{false}, block)
     global_uids = placement_inv[]
     local_uids = calculate_local_uids(global_uids)
 
-    pushfirst!(block.args, :(global_topology = $global_uids)) # global_topology
     pushfirst!(block.args, :(local_topology = $local_uids))   # local_topology
+    pushfirst!(block.args, :(topology = $global_uids)) # topology
     pushfirst!(block.args, :(using Hash))
     push!(block.args,:(Hash.popComponent()))
 end
