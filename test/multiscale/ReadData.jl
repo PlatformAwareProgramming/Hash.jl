@@ -1,6 +1,6 @@
 using Hash
  
-@connector remotecall ReadData begin
+@connector cluster ReadData begin
 
     @unit single producer begin
         

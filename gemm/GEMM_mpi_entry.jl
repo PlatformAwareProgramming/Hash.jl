@@ -6,7 +6,7 @@ end
 
 MPI.Init()
 
-@computation messagepassing GEMM_mpi_entry begin
+@computation cluster GEMM_mpi_entry begin
 
     function block_cyclic_2D_scatter_master(comm, X, Y, M, N, m, n, a, tag)
         for i in 1:m:M
@@ -32,7 +32,7 @@ MPI.Init()
         end
     end
 
-    function block_cyclic_2D_scatter_worker(comm, X, Y, M, N, m, n, a, tag)
+    function block_cyclic_2D_scatter_worker(comm, M, N, m, n, a, tag)
         for i in 1:m:M
             for j in 1:n:N
                 MPI.Send(a[i:i+m-1, j:j+n-1], comm; dest = 0, tag = tag)
@@ -40,7 +40,7 @@ MPI.Init()
         end
     end
 
-    function block_cyclic_2D_gather_worker(comm, X, Y, M, N, m, n, a, tag)
+    function block_cyclic_2D_gather_worker(comm, M, N, m, n, a, tag)
         buf = zeros(m, n)
         for i in 1:m:M
             for j in 1:n:N
@@ -57,29 +57,47 @@ MPI.Init()
 
         using MPI
 
-        function multiply!(X, Y, M, N, P, ma, n, pb, mc, pc, alpha, beta, a, b, c)
+        function multiply!(alpha, beta, a, b, c)
+            X = 2
+            Y = 3
+            ma = 200
+            n = 200
+            pb = 200
+            mc = 200
+            pc = 200
+            multiply!(X, Y, ma, n, pb, mc, pc, alpha, beta, a, b, c)
+        end
 
-            world_comm = MPI.COMM_WORLD
-            world_group = MPI.Comm_group(world_comm)
-            workers_group = MPI.Group_excl(world_group, Int32[0])
-            MPI.Comm_create(world_comm, workers_group)
+        world_comm = MPI.COMM_WORLD
+        world_group = MPI.Comm_group(world_comm)
+        workers_group = MPI.Group_excl(world_group, Int32[0])
+        MPI.Comm_create(world_comm, workers_group)
+
+        function multiply!(X, Y, ma, n, pb, mc, pc, alpha, beta, a, b, c)
+
+            M = size(a,1)
+            N = size(a,2); @assert size(b,2) == N
+            P = size(b,1)
+
+            for i in topology[:worker]
+                MPI.Send(false, world_comm; dest = i, tag = 444)
+            end
 
             root = topology[:master][1]
             MPI.bcast((X, Y, M, N, P, ma, n, pb, mc, pc, alpha, beta), root, world_comm)
 
-            @info "$unit_idx: SCATTER a - master - begin"
-            block_cyclic_2D_scatter_master(world_comm, X, Y, M, N, ma, n, a, 111)
-            @info "$unit_idx: SCATTER a - master - end"
-            
-            @info "$unit_idx: SCATTER b - master - begin"
+            block_cyclic_2D_scatter_master(world_comm, X, Y, M, N, ma, n, a, 111)            
             block_cyclic_2D_scatter_master(world_comm, X, Y, P, N, pb, n, b, 222)
-            @info "$unit_idx: SCATTER b - master - end"
-
-            @info "$unit_idx: GATHER c - master - begin"
             block_cyclic_2D_gather_master(world_comm, X, Y, M, P, mc, pc, c, 333)
-            @info "$unit_idx: GATHER c - master - end"
 
             return c
+        end
+
+        function finish()
+            @info "CALL FINISH $(topology[:worker])"
+            for i in topology[:worker]
+                MPI.Send(true, world_comm; dest = i, tag = 444)
+            end
         end
 
     end
@@ -90,44 +108,41 @@ MPI.Init()
 
         using MPI
 
-        @info "======>>>> WORKER unit_idx = $unit_idx, topology = $topology, local_topology = $local_topology"
-
         @slice GEMM_mpi.gemm
+
+        root = topology[:master][1]
 
         world_comm = MPI.COMM_WORLD
         world_group = MPI.Comm_group(world_comm)
-        workers_group = MPI.Group_excl(world_group, Int32[0])
+        workers_group = MPI.Group_excl(world_group, Int32[root])
         workers_comm = MPI.Comm_create(world_comm, workers_group)
 
-        root = topology[:master][1]
-        (X, Y, M, N, P, ma, n, pb, mc, pc, alpha, beta) = MPI.bcast(nothing, world_comm)
+        termination_flag = Ref{Bool}(false)
 
-        @info "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% $((X, Y, M, N, P, ma, n, pb, mc, pc))"
+        termination_flag[] = MPI.Recv(Bool, world_comm; source=root, tag = 444)
+        while (!termination_flag[])
 
-        Mx = div(M, X)
-        Ny = div(N, Y)
-        Px = div(P, X)
-        Py = div(P, Y)
-        
-        a = zeros(Mx, Ny)
-        b = zeros(Px, Ny)
-        c = zeros(Mx, Py)
+            (X, Y, M, N, P, ma, n, pb, mc, pc, alpha, beta) = MPI.bcast(nothing, world_comm)
 
-        @info "$unit_idx: GATHER a - worker - begin"
-        block_cyclic_2D_gather_worker(world_comm, X, Y, Mx, Ny, ma, n, a, 111)
-        @info "$unit_idx: GATHER a - worker - end"
+            Mx = div(M, X)
+            Ny = div(N, Y)
+            Px = div(P, X)
+            Py = div(P, Y)
+            
+            a = zeros(Mx, Ny)
+            b = zeros(Px, Ny)
+            c = zeros(Mx, Py)
 
-        @info "$unit_idx: GATHER b - worker - begin"
-        block_cyclic_2D_gather_worker(world_comm, X, Y, Px, Ny, pb, n, b, 222)
-        @info "$unit_idx: GATHER b - worker - end"
+            block_cyclic_2D_gather_worker(world_comm, Mx, Ny, ma, n, a, 111)
+            block_cyclic_2D_gather_worker(world_comm, Px, Ny, pb, n, b, 222)
 
-        gemm.multiply!(workers_comm, X, Y, pb, pc, alpha, beta, a, b, c)
+            gemm.multiply!(workers_comm, X, Y, pb, pc, alpha, beta, a, b, c)
 
-        @info "$unit_idx: SCATTER c -worker - begin"
-        block_cyclic_2D_scatter_worker(world_comm, X, Y, Mx, Py, mc, pc, c, 333)
-        @info "$unit_idx: SCATTER c -worker - end"
+            block_cyclic_2D_scatter_worker(world_comm, Mx, Py, mc, pc, c, 333)
 
-        function multiply!(X, Y, M, N, P, ma, n, pb, mc, pc, a, b, c) nothing end
+            termination_flag[] = MPI.Recv(Bool, world_comm; source=root, tag = 444)
+        end
+
     end
 
 end

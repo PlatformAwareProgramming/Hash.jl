@@ -4,6 +4,7 @@ authors = ["Francisco Heron de Carvalho Junior <heron@dc.ufc.br>"]
 version = "0.1.0"
 
 [deps]
+ConcurrentCollections = "5060bff5-0b44-40c5-b522-fcd3ca5cecdd"
 CpuId = "adafc99b-e345-5852-983c-f28acb93d879"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"

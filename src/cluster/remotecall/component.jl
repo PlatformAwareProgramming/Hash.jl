@@ -2,8 +2,9 @@
 # Licensed under the MIT License. See LICENCE in the project root.
 # ------------------------------------------------------------------
 
-abstract type RemoteCall <: Cluster end
+abstract type RemoteCall <: AnyLevel end
 level_type(::Val{:remotecall}) = RemoteCall
+level_depth(::Type{RemoteCall}) = 1
 
 start_index(::Type{RemoteCall}) = 1
 
@@ -25,16 +26,7 @@ function determine_current_args(level::Type{RemoteCall}, ::Val{id}, ::Val{true},
 
     current_args[] = l
     return l
-
-
-#=    current_args = read("placement", String)
-    for w in workers()
-        @info "send placement $(current_args) to $w"
-        @spawnat w recv_current_args(current_args)
-    end=#
 end
-
-
 
 function determine_current_args(::Type{RemoteCall}, ::Val{id}, ::Val{false}, block) where id 
     nothing

@@ -1,10 +1,23 @@
-
-
 @computation remotecall GEMM_distributed begin
 
-    using MPI
+    using Distributed
 
-    function reduce(comm, X, Y, nblks, i, irow, jcol, pc, c, c_prime)
+    a = Ref{Matrix}() 
+    b = Ref{Matrix}()
+
+    function setB(b_)
+        b[] = b_
+    end
+
+    function setA(a_)
+        a[] = a_
+    end
+
+    function myreduce!(sendbuf; root = 0)
+        return copy(sendbuf)
+    end
+
+    function reduce(X, Y, nblks, i, irow, jcol, pc, c, c_prime)
 
         M = size(c_prime, 1)
     
@@ -13,9 +26,9 @@
             if jcol == mod(root, Y)
                c_prime[1:M, (j*pc+1):((j+1)*pc)] += c[1:M, (div(root,Y)*pc+1):((1+div(root,Y))*pc)]
             end
+
             sendbuf = c_prime[1:M, (j*pc+1):((1+j)*pc)]
-            recvbuf = zeros(M, pc)
-            MPI.Reduce!(sendbuf, recvbuf, MPI.SUM, comm; root = mod(root, Y))
+            recvbuf = myreduce!(sendbuf; root = mod(root, Y))
             if (jcol == mod(root,Y))
                 c[1:M, (div(root,Y)*pc+1):((1+div(root,Y))*pc)] = recvbuf
             end
@@ -23,56 +36,55 @@
     
     end
     
-    function shift(comm, X, irow, b)
+    function shift(X, Y, irow, jcol, b)
     
-        r = irow == X - 1 ? 0 : irow + 1
-        s = irow == 0 ? X - 1 : irow -1
-    
-        sreq = MPI.Isend(b, comm; dest=r)
-        rreq = MPI.Irecv!(b, comm; source=s)
-        MPI.Waitall([sreq, rreq])
-    
+        next_irow = irow == X - 1 ? 0 : irow + 1
+        next_rank = next_irow * Y + jcol + minimum(workers())
+                
+        @info "shift irow=$irow next_irow=$next_irow jcol=$jcol rank=$(myid()) next_rank=$next_rank"
+
+        remotecall_wait(setB, next_rank, b)
+
     end
     
     
     @unit parallel gemm begin
 
-        @info "########################## - -begin'"
         @inner GEMM_threads_entry
-        @info "########################## - end"
 
-        function multiply!(comm, X, Y, pb, pc, alpha, beta, a, b, c)
+        function multiply!(X, Y, pb, pc, alpha, beta, a_, b_, c)
     
-            rank = MPI.Comm_rank(comm)
-            @info "my worker rank is $rank"
+            setA(a_) 
+            setB(b_) 
+
+            first = minimum(workers())
+            rank = myid() - first 
         
             irow = div(rank, Y)
             jcol = mod(rank, Y)
-            row_comm = MPI.Comm_split(comm, irow, jcol)
-            col_comm = MPI.Comm_split(comm, jcol, irow)
         
-            M  = size(a,1)
-            Px = size(b,1)
+            M  = size(a[],1)
+            Px = size(b[],1)
         
-            nblks = div(size(b, 1), pb)
+            nblks = div(size(b[], 1), pb)
         
             c_prime = zeros(M, Px)
         
             for i in 1:X
-        
-                GEMM_threads_entry.multiply!(alpha, beta, a, b, c_prime)
+
+                GEMM_threads_entry.multiply!(alpha, beta, a[], b[], c_prime)
 
                 # reduce
-                reduce(row_comm, X, Y, nblks, i, irow, jcol, pc, c, c_prime)
+                reduce(X, Y, nblks, i, irow, jcol, pc, c, c_prime)
 
                 # shift
-                shift(col_comm, X, irow, b)
+                shift(X, Y, irow, jcol, b[])
         
                 c_prime .= 0.0
             end
         
         end
-    
+
     end
 
 end

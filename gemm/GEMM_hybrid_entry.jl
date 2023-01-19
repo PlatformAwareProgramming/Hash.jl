@@ -1,15 +1,32 @@
-@everywhere using Hash
+using MPIClusterManagers, Distributed, MPI
 
+manager = MPIClusterManagers.start_main_loop(MPI_TRANSPORT_ALL)
 function stop()
+    MPIClusterManagers.stop_main_loop(manager)
 end
 
-@everywhere @computation remotecall GEMM_distributed_entry begin
+@everywhere using Hash
+
+@everywhere @computation cluster GEMM_hybrid_entry begin
 
     using Distributed
-    
+    using MPI
+
+    MPI.Init()
+
     @unit master begin
 
+        using Distributed 
+
         @info "======>>>> master unit_idx = $unit_idx, topology = $topology, local_topology = $local_topology"
+
+        world_comm = MPI.COMM_WORLD
+        world_group = MPI.Comm_group(world_comm)
+        workers_group = MPI.Group_excl(world_group, Int32[0])
+        MPI.Comm_create(world_comm, workers_group)
+
+        @info "............................................................ rank = $(MPI.Comm_rank(world_comm))"
+
 
         function reorder_matrix!(X, Y, M, N, m, n, a)
             aux = zeros(m,n)
@@ -43,7 +60,7 @@ end
                 for row in 0:X-1
                     for col in 0:Y-1
                         widx = row * Y + col + 1
-                        wpid = topology[:worker][widx]
+                        wpid = topology[:worker][widx] + 1
                         Mx = div(M, X)
                         Ny = div(N, Y)
                         Px = div(P, X)
@@ -66,17 +83,37 @@ end
 
     end
 
-    @inner GEMM_distributed
+    @inner GEMM_mpi
 
-    @unit parallel count=W worker begin
+
+    @unit parallel count=N worker begin
 
         @info "======>>>> worker unit_idx = $unit_idx, topology = $topology, local_topology = $local_topology"
 
-        @slice GEMM_distributed.gemm
+        world_comm = MPI.COMM_WORLD
+        world_group = MPI.Comm_group(world_comm)
+        workers_group = MPI.Group_excl(world_group, Int32[0])
+        workers_comm = MPI.Comm_create(world_comm, workers_group)
 
-        function multiply!(X, Y, Mx, Py, pb, pc, alpha, beta, a, b)                     
+        @info "............................................................ rank = $(MPI.Comm_rank(world_comm))"
+
+        @slice GEMM_mpi.gemm
+        #@inner GEMM_threads_entry
+
+
+        function multiply!(X, Y, Mx, Py, pb, pc, alpha, beta, a, b)
+             
+            @info "=>=>=>=>=>=> start $unit_idx"
+        
             c = zeros(Mx, Py)
-            gemm.multiply!(X, Y, pb, pc, alpha, beta, a, b, c)    
+
+            @info "AAAAAAAAAx = $(size(a,1)), AAAAAAAAy = $(size(a,2))"
+            @info "BBBBBBBBBx = $(size(b,1)), BBBBBBBBy = $(size(b,2))"
+
+            #=GEMM_threads_entry=#gemm.multiply!(workers_comm, X, Y, pb, pc, alpha, beta, a, b, c)
+    
+            @info "=>=>=>=>=>=> finish $unit_idx"
+
             return c
         end
 

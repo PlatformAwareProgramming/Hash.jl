@@ -34,6 +34,10 @@ function unit_macro(level, flag, uname, block, unit_uids)
 
     @assert block.head == :block    
     
+    if level_depth(getTopLevel()) > level_depth(level)
+        filter!(is_nonmacro_command, block.args)
+    end
+
     enclosing_unit[] = uname
 
     level_parent = level_dict[][parent_component()]

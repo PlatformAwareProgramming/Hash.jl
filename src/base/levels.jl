@@ -4,5 +4,5 @@
 # ------------------------------------------------------------------
 
 abstract type AnyLevel end
-abstract type Cluster <: AnyLevel end
 
+levelDepth(::Type{AnyLevel}) = -1

@@ -3,7 +3,7 @@ using Hash
 using MPI
 MPI.Init()
 
-@application messagepassing Test2 begin
+@application cluster Test2 begin
     
     @inner ReadData2
 

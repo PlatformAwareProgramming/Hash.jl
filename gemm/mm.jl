@@ -1,7 +1,7 @@
 using BenchmarkTools
 
-block_size = [25, 50, 200]
-#block_size = [5, 10, 20]
+#block_size = [25, 50, 200]
+block_size = [5, 10, 20]
 
 function mm(::Val{0}, s, a, b, c, a_x, a_y, b_x, b_y)
 
@@ -61,14 +61,42 @@ end
 
 function main()
 
-    N = parse(Int64, ARGS[1])
-    P = parse(Int64, ARGS[2])
+    @info ARGS
 
-   @info "start ... N=$N P=$P"
+    M = parse(Int64, ARGS[1])
+    N = parse(Int64, ARGS[2])
+    P = parse(Int64, ARGS[3])
+
+   @info "start ... M=$N N=$N P=$P"
  
-   a = rand(N,N)
-   b = rand(N,N)
-   c = zeros(N,N)
+   a = ones(M,N)
+   b = ones(P,N)
+   c = zeros(M,P)
+
+   #mm(Val(0), N, a, b, c, 1, 1, 1, 1)
+
+   bs = 2
+   m = size(a,1)
+   n = size(a,2)
+   p = size(b,1)
+   nbm = Int64(m/bs)   # number of blocks.
+   nbn = Int64(n/bs)   # number of blocks.
+   nbp = Int64(p/bs)   # number of blocks.
+
+   @info m, n, p, nbm, nbn, nbp
+
+   count = 0
+   for i in 0:nbm-1, j in 0:nbp-1, k in 0:nbn-1
+       #if mod(count, N) == id-1
+           mm(Val(0), bs, a, b, c, 1 + i*bs, 1 + k*bs, 1 + k*bs, 1 + j*bs)
+       #end
+       count += 1                
+   end
+
+
+   @info(c)
+
+#=
    @btime mm($N, $a, $b, $c)
 #   @time mm(N, a, b, c)
     @info c[1,1]
@@ -93,7 +121,7 @@ function main()
     @info c[N,N]
     @info c[1,N]
     @info c[N,1]
-
+=#
 end
 
 #main()

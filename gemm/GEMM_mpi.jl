@@ -1,5 +1,4 @@
-
-@computation messagepassing GEMM_mpi begin
+@computation cluster GEMM_mpi begin
     
     using MPI
 
@@ -16,7 +15,7 @@
             recvbuf = zeros(M, pc)
             MPI.Reduce!(sendbuf, recvbuf, MPI.SUM, comm; root = mod(root, Y))
             if (jcol == mod(root,Y))
-                c[1:M, (div(root,Y)*pc+1):((1+div(root,Y))*pc)] = recvbuf
+                c[1:M, (div(root,Y)*pc+1):((1+div(root,Y))*pc)] += recvbuf
             end
         end
     
@@ -36,14 +35,11 @@
     
     @unit parallel gemm begin
 
-        @info "########################## - -begin'"
         @inner GEMM_threads_entry
-        @info "########################## - end"
 
         function multiply!(comm, X, Y, pb, pc, alpha, beta, a, b, c)
     
             rank = MPI.Comm_rank(comm)
-            @info "my worker rank is $rank"
         
             irow = div(rank, Y)
             jcol = mod(rank, Y)
@@ -60,7 +56,7 @@
             for i in 1:X
         
                 GEMM_threads_entry.multiply!(alpha, beta, a, b, c_prime)
-
+            
                 # reduce
                 reduce(row_comm, X, Y, nblks, i, irow, jcol, pc, c, c_prime)
 

@@ -1,6 +1,6 @@
 
 
-function slice_macro(::Type{MessagePassing}, s)
+function slice_macro(::Type{Cluster}, s)
 
     #result = Expr(:import, Expr(:., :., s.args[1]))
     @assert s.head == :. && length(s.args) == 2
@@ -12,7 +12,7 @@ function slice_macro(::Type{MessagePassing}, s)
     return result
 end
 
-function slice_macro(::Type{MessagePassing}, s, as, b)
+function slice_macro(::Type{Cluster}, s, as, b)
 
     @assert s.head == :. && length(s.args) == 2
 

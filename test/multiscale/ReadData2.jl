@@ -1,6 +1,6 @@
 using Hash
  
-@connector messagepassing ReadData2 begin
+@connector cluster ReadData2 begin
 
     @unit single producer begin
         

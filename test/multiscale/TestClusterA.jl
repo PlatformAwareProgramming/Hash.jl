@@ -2,7 +2,7 @@ using MPI
 
 MPI.Init()
 
-@computation messagepassing TestClusterA begin
+@computation cluster TestClusterA begin
 
     using Statistics
 

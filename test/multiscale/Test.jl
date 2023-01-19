@@ -3,7 +3,7 @@
  
 @everywhere using Hash
 
-@everywhere @application remotecall Test begin
+@everywhere @application cluster Test begin
     
     @inner ReadData
 

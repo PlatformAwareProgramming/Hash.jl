@@ -4,6 +4,7 @@
 
 abstract type Manycore <:  AnyLevel end
 level_type(::Val{:manycore}) = Manycore
+level_depth(::Type{Manycore}) = 2
 
 start_index(::Type{Manycore}) = 0
 

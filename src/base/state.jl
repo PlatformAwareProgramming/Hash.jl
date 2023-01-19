@@ -2,6 +2,14 @@
 # Licensed under the MIT License. See LICENCE in the project root.
 # ------------------------------------------------------------------
 
+topLevel = Ref{Type}(AnyLevel)
+function setTopLevel(level)
+    topLevel[] = level
+    @info "SET LEVEL TOP $(topLevel[])"
+end
+
+getTopLevel() = topLevel[]
+
 args_dict = Ref{Dict{String,String}}(Dict())
 current_args = Ref{String}()
 
@@ -20,6 +28,22 @@ parent_component() = components[][2]
 
 level_dict = Ref{Dict{String,Type}}(Dict())    
 current_level = Ref{Type}(AnyLevel)
+
+unit_topology = Dict{String, Dict{Symbol, Vector{Int}}}()
+unit_local_topology = Dict{String,Dict{Symbol, Vector{Int}}}()
+
+function setTopology(topology, local_topology)
+    unit_topology[current_component()] = topology
+    unit_local_topology[current_component()] = local_topology
+end
+
+function getTopology()
+    return unit_topology[current_component()]
+end
+
+function getLocalTopology()
+    return unit_local_topology[current_component()]
+end
 
 enclosing_unit = Ref{Union{Symbol,Nothing}}(nothing)
 function reset_enclosing_unit()
@@ -43,4 +67,11 @@ end
 
 function parentComponent()
     SubString(current_component(), 1:findlast(".", current_component()).stop-1)
+end
+
+function is_nonmacro_command(command)
+    if typeof(command) == Expr && command.head == :macrocall && command.args[1] in [Symbol("@unit"), Symbol("@inner"), Symbol("@slice")]
+        return true
+    end
+    return false
 end

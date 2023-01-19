@@ -28,18 +28,28 @@ end
 
 saved_enclosing_unit = Ref{Any}()
 
+
+
+
 function component_macro(level::Type{<:AnyLevel}, cname, block)
 
     if (isempty(args_dict[]))
+        if getTopLevel() == AnyLevel
+            setTopLevel(level)
+        end
         args_dict[]["Main"] = ""
         args_dict[]["Main.$cname"] = ""
         level_dict[]["Main"] = current_level[]  
     end
 
+    if (level_depth(getTopLevel()) > level_depth(level))
+        filter!(is_nonmacro_command, block.args)
+    end
+
     is_level_transition = level != current_level[]
     
     current_component_name = "$(current_component()).$cname"
-    @info "************************** $current_component_name $is_level_transition $level $(current_level[])"
+#    @info "************################# $current_component_name $is_level_transition $level $(current_level[])"
 
     saved_enclosing_unit[] = enclosing_unit[]
     if is_level_transition
@@ -54,6 +64,8 @@ function component_macro(level::Type{<:AnyLevel}, cname, block)
     @info "THE depth OF $current_component_name is $(current_depth[]) -- ENCLOSING UNIT $(enclosing_unit[])"
 
     placement_units(level, Val(myrank(level)), Val(is_level_transition), block)
+
+    @info "AFTER PLACEMENT UNITS ..."
 
     ss = collect_slices(block)
     
@@ -116,6 +128,7 @@ function insertAdditionalStatements(::Type{<:AnyLevel}, ::Val{true}, block)
 
     pushfirst!(block.args, :(local_topology = copy($local_uids)))   # local_topology
     pushfirst!(block.args, :(topology = copy($global_uids)))        # topology
+    setTopology(global_uids, local_uids)
     pushfirst!(block.args, :(using Hash))
     push!(block.args,:(Hash.popComponent()))
     push!(block.args, Meta.parse("Hash.enclosing_unit[] = :($(saved_enclosing_unit[]))"))
@@ -133,6 +146,8 @@ end
 
 function placement_units(level::Type{<:AnyLevel}, id, level_transition, block)
        
+    @info "INSIDE PLACEMENT UNITS ... 1 $(current_args[])"
+
     determine_current_args(level, id, level_transition, block)
     
     calculate_placement(level, current_args[]) 

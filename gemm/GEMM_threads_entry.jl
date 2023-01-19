@@ -66,11 +66,8 @@ using Hash
 
         function multiply!(alfa0, beta0, a0, b0, c0)
             alpha[] = alfa0; beta[] = beta0
-            a[] = a0; b[] = b0; c[] = c0
-    
-            @info "go caller .................. 1"
+            a[] = a0; b[] = b0; c[] = c0    
             go_caller()
-            @info "go caller .................. 2"
             wait_go()
         end
     
