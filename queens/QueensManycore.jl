@@ -1,5 +1,3 @@
-using StaticArrays
-
 @computation manycore QueensManycore begin
 
     num_threads = length(Hash.getTopology()[:worker])
@@ -10,7 +8,7 @@ using StaticArrays
     join_flag = Ref(Dict(i => false for i in 1:num_threads))
 
     size = Ref{Int}()
-    current_cutoff_depth = Ref{Int}()
+    cutoff_depth = Ref{Int}()
     number_of_subproblems = Ref{Int}()
     subproblems = Ref{Any}()
     thread_load = Ref{Any}()
@@ -19,25 +17,24 @@ using StaticArrays
 
     @unit master begin        
 
-        cutoff_depth = 2
-
         function queens(size; cutoff_depth = 5)
-
+        
             size += 1
-
-            local_visited, local_permutation = Main.createArrays(Val(size))
-
-            queens(size, 1, local_visited, local_permutation)
+        
+            (subproblems, number_of_subproblems, partial_tree_size) = Main.queens_partial_search(Val(size), cutoff_depth)
+        
+            number_of_solutions, tree_size = queens_mcore_caller(size, cutoff_depth, number_of_subproblems, subproblems) 
+            tree_size += partial_tree_size
+        
+            return number_of_solutions, tree_size
         
         end #caller
 
-        function queens(size_param, cutoff_depth_initial, local_visited, local_permutation) 
-
-            (subproblems_param, partial_tree_size) = Main.queens_partial_search(cutoff_depth_initial, cutoff_depth_initial + 1, cutoff_depth_initial + cutoff_depth, size_param, local_visited, local_permutation)
+        function queens(size_param, cutoff_depth_param, number_of_subproblems_param, subproblems_param) 
 
             size[] = size_param
-            current_cutoff_depth[] = cutoff_depth_initial + cutoff_depth
-            number_of_subproblems[] =  length(subproblems) #+ number_of_subproblems_initial
+            cutoff_depth[] = cutoff_depth_param
+            number_of_subproblems[] = number_of_subproblems_param
             subproblems[] = subproblems_param
 
             thread_load[] = fill(div(number_of_subproblems[], num_threads), num_threads)
@@ -59,7 +56,7 @@ using StaticArrays
             end
 
             mcore_number_of_solutions = sum(thread_num_sols[])
-            mcore_tree_size = sum(thread_tree_size[]) + partial_tree_size
+            mcore_tree_size = sum(thread_tree_size[])
         
             return mcore_number_of_solutions, mcore_tree_size
         
@@ -84,12 +81,9 @@ using StaticArrays
             local_load = thread_load[][local_thread_id]
             stride = div(number_of_subproblems[], length(topology[:worker]))
 
-            @info "!!!!!!!!!! $local_load"
             for j in 1:local_load        
                 s = (local_thread_id - 1) * stride + j
-                @info "%%%%%%%%%%%%%%%%%%%%%%%%% $(current_cutoff_depth[]), $(size[]) 1"
-                local_number_of_solutions, local_partial_tree_size = Main.queens_tree_explorer_parallel(current_cutoff_depth[] + 1, current_cutoff_depth[] + 1, size[] + 1, size[], subproblems[][s][1], subproblems[][s][2])
-                @info "%%%%%%%%%%%%%%%%%%%%%%%%% $(current_cutoff_depth[]), $(size[]) 2"
+                local_number_of_solutions, local_partial_tree_size = Main.queens_tree_explorer_parallel(Val(size[]), Val(cutoff_depth[]), subproblems[][s][1], subproblems[][s][2])
                 thread_tree_size[][local_thread_id] += local_partial_tree_size
                 thread_num_sols[][local_thread_id]  += local_number_of_solutions
             end

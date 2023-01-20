@@ -3,28 +3,25 @@ using Hash
 @computation cluster QueensMPI begin
 
     using MPI
-    using StaticArrays
 
     MPI.Init()
 
     @unit master begin
 
-        cutoff_depth = 2
-
         function queens(size; cutoff_depth = 5)
 
             size += 1
-
-            local_visited, local_permutation = Main.createArrays(Val(size))
-
-            queens(size, 1, local_visited, local_permutation)
+        
+            (subproblems, number_of_subproblems, partial_tree_size) = Main.queens_partial_search(Val(size), cutoff_depth)
+        
+            number_of_solutions, tree_size = queens(size, cutoff_depth, number_of_subproblems, subproblems) 
+            tree_size += partial_tree_size
+        
+            return number_of_solutions, tree_size
         
         end #caller
 
-        function queens(size, cutoff_depth_initial, local_visited, local_permutation) 
-
-            (subproblems, partial_tree_size) = Main.queens_partial_search(cutoff_depth_initial, cutoff_depth_initial + 1, cutoff_depth_initial + cutoff_depth, size, local_visited, local_permutation)
-            number_of_subproblems = length(subproblems) #+ number_of_subproblems_initial
+        function queens(size, cutoff_depth, number_of_subproblems, subproblems) 
 
             @info "QUEENS MPI $size $cutoff_depth $number_of_subproblems"
 
@@ -48,7 +45,7 @@ using Hash
         
                 MPI.send(false, MPI.COMM_WORLD; dest = i, tag = 9)
 
-                args = (size, cutoff_depth_initial + cutoff_depth, local_subproblems)
+                args = (size, cutoff_depth, local_load, local_subproblems)
                 MPI.send(args, MPI.COMM_WORLD; dest=topology[:worker][i], tag=1)
             end
         
@@ -60,7 +57,7 @@ using Hash
             end
         
             number_of_solutions = sum(proc_num_sols)
-            tree_size = sum(proc_tree_size) + partial_tree_size
+            tree_size = sum(proc_tree_size)
         
             return number_of_solutions, tree_size
         
@@ -84,18 +81,8 @@ using Hash
 
         termination_flag[] = MPI.recv(MPI.COMM_WORLD; source=master_rank, tag = 9)
         while (!termination_flag[])
-            (size, cutoff_depth, subproblems) = MPI.recv(MPI.COMM_WORLD; source=master_rank, tag=1)
-
-            number_of_solutions = 0
-            tree_size = 0
-            for (local_visited, local_permutation) in subproblems                 
-                ns, ts = QueensManycore.queens(size, cutoff_depth, local_visited, local_permutation)
-                @info "+++++++++++++++++++++++ $ns $ts"
-                number_of_solutions += ns
-                tree_size += ts
-            end
-            res = (number_of_solutions, tree_size)
-
+            (size, cutoff_depth, number_of_subproblems, subproblems) = MPI.recv(MPI.COMM_WORLD; source=master_rank, tag=1)
+            res = QueensManycore.queens(size, cutoff_depth, number_of_subproblems, subproblems)
             MPI.send(res, MPI.COMM_WORLD; dest = master_rank, tag = 2)
             termination_flag[] = MPI.recv(MPI.COMM_WORLD; source=master_rank, tag = 9)
         end
