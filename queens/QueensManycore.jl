@@ -65,7 +65,6 @@
     end
     
     @unit parallel count=T worker begin
-        @info "unit_idx=$unit_idx"
 
         local_thread_id = unit_idx
 

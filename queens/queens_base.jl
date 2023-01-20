@@ -4,9 +4,9 @@
 
 using StaticArrays
 
-function createArrays(::Val{length}) where length
-	local_visited     = MArray{Tuple{length+1},Int64}(undef)
-	local_permutation = MArray{Tuple{length+1},Int64}(undef)
+function createArrays(::Val{size}) where size
+	local_visited     = MArray{Tuple{size+1},Int64}(undef)
+	local_permutation = MArray{Tuple{size+1},Int64}(undef)
 
 	local_visited     .= 0
 	local_permutation .= 0
@@ -17,7 +17,7 @@ end
 # verifies whether a given solution/incomplete solution is feasible
 function valid_configuration(board, roll)
 
-	#@inbounds begin
+	@inbounds begin
 		for i=2:roll-1
 			if (board[i] == board[roll])
 				return false
@@ -34,7 +34,7 @@ function valid_configuration(board, roll)
 				return false
 			end
 		end
-	#end
+	end
 
 	return true
 end ##queens_is_valid_conf

@@ -10,8 +10,6 @@ using Hash
 
     @unit master begin
 
-        @info "------------------------------------------ MASTER 1"
-
         function queens(size; cutoff_depth = 5)
 
             size += 1
@@ -92,9 +90,7 @@ using Hash
         end
 
         notify_unit(:worker, unit_idx, :master)
-        @info "WAIT MASTER 1"
         wait_unit(:master)
-        @info "WAIT MASTER 2"
 
     end
 

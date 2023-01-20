@@ -34,9 +34,7 @@ using Hash
             result = Dict()
         
             idx = 1 
-        
-            @info length(subproblems)
-        
+                
             for i in topology[:worker]        
                 local local_load = proc_load[i]
         
@@ -64,7 +62,7 @@ using Hash
         end #caller
 
         function finish()
-            @info "CALL FINISH $(topology[:worker])"
+            @info "TERMINATING CLUSTER $(topology[:worker])"
             for i in topology[:worker]
                MPI.send(true, MPI.COMM_WORLD; dest = i, tag = 9)
             end
