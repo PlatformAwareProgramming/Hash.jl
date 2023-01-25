@@ -34,9 +34,7 @@ function queens_partial_search(size_v::Val{size}, cutoff_depth) where size
 
 	subproblems_pool, tree_size = queens_partial_search(size_v, Val(cutoff_depth), local_visited, local_permutation)
 
-	number_of_subproblems = length(subproblems_pool)
-
-	return subproblems_pool, number_of_subproblems, tree_size
+	return subproblems_pool, tree_size
 
 end #queens partial
 

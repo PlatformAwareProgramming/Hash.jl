@@ -21,17 +21,18 @@
         
             size += 1
         
-            (subproblems, number_of_subproblems, partial_tree_size) = Main.queens_partial_search(Val(size), cutoff_depth)
+            (subproblems, partial_tree_size) = Main.queens_partial_search(Val(size), cutoff_depth)
         
-            number_of_solutions, tree_size = queens_mcore_caller(size, cutoff_depth, number_of_subproblems, subproblems) 
+            number_of_solutions, tree_size = queens(size, cutoff_depth, subproblems) 
             tree_size += partial_tree_size
         
             return number_of_solutions, tree_size
         
         end #caller
 
-        function queens(size_param, cutoff_depth_param, number_of_subproblems_param, subproblems_param) 
+        function queens(size_param, cutoff_depth_param, subproblems_param) 
 
+            number_of_subproblems_param = length(subproblems_param)
             size[] = size_param
             cutoff_depth[] = cutoff_depth_param
             number_of_subproblems[] = number_of_subproblems_param

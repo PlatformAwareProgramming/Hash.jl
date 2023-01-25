@@ -14,18 +14,19 @@ using Hash
 
             size += 1
         
-            (subproblems, number_of_subproblems, partial_tree_size) = Main.queens_partial_search(Val(size), cutoff_depth)
+            (subproblems, partial_tree_size) = Main.queens_partial_search(Val(size), cutoff_depth)
         
-            number_of_solutions, tree_size = queens(size, cutoff_depth, number_of_subproblems, subproblems) 
+            number_of_solutions, tree_size = queens(size, cutoff_depth, subproblems) 
             tree_size += partial_tree_size
         
             return number_of_solutions, tree_size
         
         end #caller
 
-        function queens(size, cutoff_depth, number_of_subproblems, subproblems) 
+        function queens(size, cutoff_depth, subproblems) 
 
-            num_workers = nworkers()
+            number_of_subproblems = length(subproblems)
+            num_workers = length(topology[:worker])
             proc_tree_size = zeros(Int64, num_workers)
             proc_num_sols  = zeros(Int64, num_workers)
             proc_load = fill(div(number_of_subproblems, num_workers), num_workers)
@@ -34,27 +35,23 @@ using Hash
             result = Dict()
         
             idx = 1 
+                
+            for i in 1:length(topology[:worker])        
+                local local_load = proc_load[i]
         
-            @info length(subproblems)
-        
-            for ii in 1:num_workers
-        
-                local local_proc_id = ii + 1
-                local local_load = proc_load[ii]
-        
-                @info idx, local_load
                 local_subproblems = subproblems[idx:(idx + local_load - 1)]
                 idx += local_load
         
-                result[ii] = @remotecall local_proc_id begin
-                    QueensMulticluster.queens_at_worker($size, $cutoff_depth, $local_load, $local_subproblems)
+                result[i] = @remotecall topology[:worker][i] begin
+                    QueensMulticluster.queens_at_worker($size, $cutoff_depth, $local_subproblems)
                 end
             end
         
-            for ii in 1:num_workers
-                ns, ts = fetch(result[ii])
-                proc_num_sols[ii]  += ns
-                proc_tree_size[ii] += ts       
+            for i in 1:length(topology[:worker])
+                
+                ns, ts = fetch(result[i])
+                proc_num_sols[i]  += ns
+                proc_tree_size[i] += ts       
             end
         
             number_of_solutions = sum(proc_num_sols)
@@ -81,8 +78,8 @@ using Hash
         
         @inner QueensMPI
 
-        function queens_at_worker(size, cutoff_depth, number_of_subproblems, subproblems)
-            QueensMPI.queens(size, cutoff_depth, number_of_subproblems, subproblems)
+        function queens_at_worker(size, cutoff_depth, subproblems)
+            QueensMPI.queens(size, cutoff_depth, subproblems)
         end
 
         function finish()
