@@ -42,7 +42,7 @@ using Hash
         idle_workers = DualLinkedConcurrentRingQueue{Int}()
         for w in topology[:worker] push!(idle_workers, w) end 
             
-        function handle_request(id, mm_request, x, y)
+        function handle_request(id, mm_request, x, y, last_block)
             i = div(x-1, M) + 1
             j = div(y-1, P) + 1
             if !isassigned(c[], i, j)
@@ -51,7 +51,7 @@ using Hash
             c[][i,j] += fetch(mm_request)
             mp_control_2[][i, j] += 1
             if mp_control_2[][i,j] == n_control[]
-                push!(block_queue_out, (x, y, c[][i,j]))
+                push!(block_queue_out, (last_block, x, y, c[][i,j]))
                 c[][i,j] = nothing
             end
 
@@ -79,7 +79,7 @@ using Hash
             # returns if all the blocks of matrices have been sent
             all_blocks_set = sum(mp_control[]) == n_control[] * size(mp_control[], 1) * size(mp_control[], 2)
             idx = popfirst!(idle_workers)
-            item = (a, b, c, i, j, idx)
+            item = (a, b, c, i, j, idx, all_blocks_set)
             push!(block_queue_in, item)
             return all_blocks_set
         end
@@ -99,11 +99,11 @@ using Hash
 
             isnothing(item) && break
             
-            (a_blk, b_blk, c_blk, i, j, idx) = item
+            (a_blk, b_blk, c_blk, i, j, idx, last_block) = item
 
             mmreq = @remotecall idx GEMM_multicluster_entry.multiply!($a_blk, $b_blk, $c_blk)
             
-            @async handle_request(idx, mmreq, i, j)
+            @async handle_request(idx, mmreq, i, j, last_block)
         end
 
     end
