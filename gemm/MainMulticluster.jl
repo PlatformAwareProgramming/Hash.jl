@@ -6,34 +6,40 @@ using MulticlusterManager
 
 @launch GEMM_multicluster_entry worker:local_cluster #worker:local_cluster worker:local_cluster
 
-M, N, P = GEMM_multicluster_entry.getBlockDimensions()
+function main()
 
-MBig = M*4
-NBig = N*4
-PBig = P*4
+    M, N, P = GEMM_multicluster_entry.getBlockDimensions()
 
-c = zeros(MBig, PBig)
+    MBig = M*4
+    NBig = N*4
+    PBig = P*4
 
-GEMM_multicluster_entry.setProblem(MBig, NBig, PBig)
+    c = zeros(MBig, PBig)
 
-for i in 1:M:MBig, j in 1:P:PBig
-    for k in 1:N:NBig
-        aa = ones(M, N)
-        bb = ones(P, N)
-        last_block = GEMM_multicluster_entry.feed_block(i, j, aa, bb)
-        @info "i=$i, j=$j, k=$k, last_block=$last_block"
+    GEMM_multicluster_entry.setProblem(MBig, NBig, PBig)
+
+    for i in 1:M:MBig, j in 1:P:PBig
+        for k in 1:N:NBig
+            aa = ones(M, N)
+            bb = ones(P, N)
+            last_block = GEMM_multicluster_entry.feed_block(i, j, aa, bb)
+            @info "i=$i, j=$j, k=$k, last_block=$last_block"
+        end
     end
+
+    count = Ref{Int}(1)
+    last_block = Ref{Bool}(false)
+    while !last_block[]
+        (lb, x, y, cc) = popfirst!(GEMM_multicluster_entry.block_queue_out)
+        c[x:(x+M-1), y:(y+P-1)]
+        @info (count[], lb, x, y, sum(c))
+        last_block[] = lb
+        count[] = count[] + 1
+    end
+
+
+    GEMM_multicluster_entry.finish()
+
 end
 
-count = Ref{Int}(1)
-last_block = Ref{Bool}(false)
-while !last_block[]
-    (lb, x, y, cc) = popfirst!(GEMM_multicluster_entry.block_queue_out)
-    c[x:(x+M-1), y:(y+P-1)]
-    @info (count[], lb, x, y, sum(c))
-    last_block[] = lb
-    count[] = count[] + 1
-end
-
-
-GEMM_multicluster_entry.finish()
+@time main()
