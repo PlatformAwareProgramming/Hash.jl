@@ -1,7 +1,7 @@
 using BenchmarkTools
 
-block_size = [25, 50, 200]
-#block_size = [5, 10, 20]
+#block_size = [25, 50, 200]
+block_size = [5, 10, 20]
 
 function mm(::Val{0}, s, a, b, c, a_x, a_y, b_x, b_y)
 
