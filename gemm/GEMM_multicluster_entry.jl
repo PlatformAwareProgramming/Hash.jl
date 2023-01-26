@@ -7,9 +7,9 @@ using Hash
 
     @unit master begin
 
-        M = 8000
-        N = 18000
-        P = 12000
+        M = 1600
+        N = 3600
+        P = 2400
 
         MBig = Ref{Int}()
         NBig = Ref{Int}()
@@ -96,8 +96,6 @@ using Hash
         @async while true
 
             item = popfirst!(block_queue_in) 
-
-            isnothing(item) && break
             
             (a_blk, b_blk, c_blk, i, j, idx, last_block) = item
 
