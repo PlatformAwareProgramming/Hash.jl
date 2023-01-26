@@ -60,11 +60,11 @@ MPI.Init()
         function multiply!(alpha, beta, a, b, c)
             X = 2
             Y = 3
-            ma = 200
-            n = 200
-            pb = 200
-            mc = 200
-            pc = 200
+            ma = 500
+            n  = 500
+            pb = 500
+            mc = 500
+            pc = 500
             multiply!(X, Y, ma, n, pb, mc, pc, alpha, beta, a, b, c)
         end
 
@@ -73,7 +73,11 @@ MPI.Init()
         workers_group = MPI.Group_excl(world_group, Int32[0])
         MPI.Comm_create(world_comm, workers_group)
 
+        job_list  = DualLinkedConcurrentRingQueue{Any}()
+
         function multiply!(X, Y, ma, n, pb, mc, pc, alpha, beta, a, b, c)
+
+            push!(job_list, (X, Y, ma, n, pb, mc, pc, alpha, beta, a, b, c))
 
             M = size(a,1)
             N = size(a,2); @assert size(b,2) == N
@@ -92,6 +96,12 @@ MPI.Init()
 
             return c
         end
+
+
+
+        function multiply_perform()
+        end
+
 
         function finish()
             @info "CALL FINISH $(topology[:worker])"

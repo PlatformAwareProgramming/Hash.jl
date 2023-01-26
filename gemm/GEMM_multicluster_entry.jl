@@ -7,9 +7,9 @@ using Hash
 
     @unit master begin
 
-        M = 800
-        N = 1800
-        P = 1200
+        M = 8000
+        N = 18000
+        P = 12000
 
         MBig = Ref{Int}()
         NBig = Ref{Int}()
