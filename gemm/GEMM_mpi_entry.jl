@@ -73,11 +73,7 @@ MPI.Init()
         workers_group = MPI.Group_excl(world_group, Int32[0])
         MPI.Comm_create(world_comm, workers_group)
 
-        job_list  = DualLinkedConcurrentRingQueue{Any}()
-
         function multiply!(X, Y, ma, n, pb, mc, pc, alpha, beta, a, b, c)
-
-            push!(job_list, (X, Y, ma, n, pb, mc, pc, alpha, beta, a, b, c))
 
             M = size(a,1)
             N = size(a,2); @assert size(b,2) == N
