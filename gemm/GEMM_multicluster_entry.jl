@@ -6,8 +6,27 @@ using Hash
     using ConcurrentCollections
 
     @unit master begin
+        
+        @info "master"
 
-        M = 8000
+        function finish()
+            push!(block_queue_in, nothing)
+            for i in topology[:worker]
+                @remotecall_fetch i GEMM_multicluster_entry.finish()
+            end
+        end
+
+        function go()
+            i = topology[:source][1]
+            @remotecall_fetch i GEMM_multicluster_entry.main()   
+        end
+
+    end
+
+
+    @unit source begin
+
+        M = 4000
         N = 6000
         P = 3000
 
@@ -84,11 +103,42 @@ using Hash
             return all_blocks_set
         end
 
-        function finish()
-            push!(block_queue_in, nothing)
-            for i in topology[:worker]
-                @remotecall_fetch i GEMM_multicluster_entry.finish()
+
+        function main()
+
+            M, N, P = getBlockDimensions()
+        
+            MBig = M*4
+            NBig = N*4
+            PBig = P*4
+        
+            c = zeros(MBig, PBig)
+        
+            setProblem(MBig, NBig, PBig)
+        
+            Threads.@spawn begin 
+                count = Ref{Int}(1)
+                last_block = Ref{Bool}(false)
+                while !last_block[]
+                    (lb, x, y, cc) = popfirst!(GEMM_multicluster_entry.block_queue_out)
+                    c[x:(x+M-1), y:(y+P-1)] = cc
+                    @info "output:", (count[], lb, x, y, sum(c))
+                    last_block[] = lb
+                    count[] = count[] + 1
+                end
             end
+        
+            for i in 1:M:MBig, j in 1:P:PBig
+                for k in 1:N:NBig
+                    aa = ones(M, N)
+                    bb = ones(P, N)
+                    last_block = GEMM_multicluster_entry.feed_block(i, j, aa, bb)
+                    @info "i=$i, j=$j, k=$k, last_block=$last_block"
+                end
+            end
+        
+            GEMM_multicluster_entry.finish()
+        
         end
 
         wait_unit(:worker)
