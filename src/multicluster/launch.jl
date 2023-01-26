@@ -56,6 +56,7 @@ function do_launch(app, args)
                 ssh_flags = eval(arg.args[2])
             end
         end
+        
         if isnothing(ssh_flags)
             if (isnothing(host_dir))
                 run(`scp ./placement $host_addr:`)
