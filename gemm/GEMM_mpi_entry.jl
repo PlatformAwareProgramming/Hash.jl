@@ -93,12 +93,6 @@ MPI.Init()
             return c
         end
 
-
-
-        function multiply_perform()
-        end
-
-
         function finish()
             @info "CALL FINISH $(topology[:worker])"
             for i in topology[:worker]
