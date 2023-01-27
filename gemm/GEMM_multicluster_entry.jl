@@ -27,17 +27,17 @@ using Hash
 
     @unit source begin
 
-        #M = 4000
-        #N = 6000
-        #P = 3000
+        M = 4000
+        N = 6000
+        P = 3000
 
         #M = 2000
         #N = 3000
         #P = 1500
 
-        M = 1000
-        N = 1500
-        P = 750
+        #M = 1000
+        #N = 1500
+        #P = 750
 
         MBig = Ref{Int}()
         NBig = Ref{Int}()

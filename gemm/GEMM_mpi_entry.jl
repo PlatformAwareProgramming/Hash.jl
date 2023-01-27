@@ -60,11 +60,11 @@ MPI.Init()
         function multiply!(alpha, beta, a, b, c)
             X = 2
             Y = 3
-            ma = 125 #125 # 500 250
-            n  = 125 
-            pb = 125
-            mc = 125
-            pc = 125
+            ma = 500 #125 # 500 250
+            n  = 500 
+            pb = 500
+            mc = 500
+            pc = 500
             multiply!(X, Y, ma, n, pb, mc, pc, alpha, beta, a, b, c)
         end
 
