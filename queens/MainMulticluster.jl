@@ -12,9 +12,25 @@ using MulticlusterManager
 @launch QueensMulticluster worker:cluster_1 worker:cluster_2 worker:cluster_3 worker:cluster_4
 
 @info "START !!!"
-@time QueensMulticluster.queens(16)
-@time QueensMulticluster.queens(17)
-@time QueensMulticluster.queens(18)
+
+@time QueensMulticluster.queens(15) # 5.XXXXXXX seconds 
+@time QueensMulticluster.queens(15)  
+@time QueensMulticluster.queens(15)  
+@time QueensMulticluster.queens(15)  
+@time QueensMulticluster.queens(15)  
+
+@time QueensMulticluster.queens(16) # 15.716749 seconds
+@time QueensMulticluster.queens(16) 
+@time QueensMulticluster.queens(16) 
+@time QueensMulticluster.queens(16) 
+@time QueensMulticluster.queens(16) 
+
+@time QueensMulticluster.queens(17) # 91.408789 seconds
+@time QueensMulticluster.queens(17) 
+@time QueensMulticluster.queens(17) 
+@time QueensMulticluster.queens(17) 
+@time QueensMulticluster.queens(17) 
+
 
 
 QueensMulticluster.finish()
