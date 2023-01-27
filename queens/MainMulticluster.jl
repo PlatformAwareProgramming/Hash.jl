@@ -12,6 +12,9 @@ using MulticlusterManager
 @launch QueensMulticluster worker:cluster_1 worker:cluster_2 worker:cluster_3 worker:cluster_4
 
 @info "START !!!"
-@time QueensMulticluster.queens(15)
+@time QueensMulticluster.queens(16)
+@time QueensMulticluster.queens(17)
+@time QueensMulticluster.queens(18)
+
 
 QueensMulticluster.finish()
