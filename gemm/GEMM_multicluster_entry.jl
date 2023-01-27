@@ -47,6 +47,7 @@ using Hash
 
         mp_control = Ref{Matrix}()
         mp_control_2 = Ref{Matrix}()
+        last_block_control = Ref{Matrix}()
         n_control = Ref{Int}()
         
         function getBlockDimensions()
@@ -62,6 +63,7 @@ using Hash
             n = div(NBig[], N)
             mp_control[] = zeros(m, p)
             mp_control_2[] = zeros(m, p)
+            last_block_control[] = zeros(m,p)
             n_control[] = n
             c[] = Matrix(undef, m, p)
             return
@@ -78,8 +80,9 @@ using Hash
             end
             c[][i,j] += fetch(mm_request)
             mp_control_2[][i, j] += 1
+            last_block_control[][i,j] |= last_block
             if mp_control_2[][i,j] == n_control[]
-                push!(block_queue_out, (last_block, x, y, c[][i,j]))
+                push!(block_queue_out, (last_block_control[][i,j], x, y, c[][i,j]))
                 c[][i,j] = nothing
             end
 
