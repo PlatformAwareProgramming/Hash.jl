@@ -31,6 +31,10 @@ using Hash
         N = 6000
         P = 3000
 
+        #M = 2000
+        #N = 3000
+        #P = 1500
+
         MBig = Ref{Int}()
         NBig = Ref{Int}()
         PBig = Ref{Int}()
@@ -83,6 +87,7 @@ using Hash
 
         function finish()
             push!(block_queue_in, nothing)
+            return nothing
         end
         
         # Send two blocks of matrices A e B to be multiplied in a cluster. 
@@ -143,7 +148,8 @@ using Hash
                     end
                 end
             end
-                
+
+            return nothing    
         end
 
         wait_unit(:worker)
@@ -178,6 +184,7 @@ using Hash
 
         function finish()
             GEMM_mpi_entry.finish()
+            return nothing
         end
 
         @info "MULTICLUSTER WORKER $unit_idx"
