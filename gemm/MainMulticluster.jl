@@ -10,7 +10,7 @@ using MulticlusterManager
 #@cluster cluster_3 "tcarneiropessoa@grvingt-1.nancy.grid5000.fr" 6 dir=`/home/tcarneiropessoa/heron/Hash.jl/gemm` exename=`/home/tcarneiropessoa/julia-1.8.2/bin/julia` tunnel=true
 #@cluster cluster_4 "tcarneiropessoa@grvingt-1.nancy.grid5000.fr" 6 dir=`/home/tcarneiropessoa/heron/Hash.jl/gemm` exename=`/home/tcarneiropessoa/julia-1.8.2/bin/julia` tunnel=true
 
-@launch GEMM_multicluster_entry source:cluster_3 worker:cluster_1 worker:cluster_2 worker:cluster_4 worker:cluster_5
+@launch GEMM_multicluster_entry source:cluster_3 worker:cluster_5 # worker:cluster_2 worker:cluster_4 worker:cluster_5
 
 @time GEMM_multicluster_entry.go()
 
