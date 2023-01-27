@@ -147,10 +147,11 @@ using Hash
                     for k in 1:N:NBig
                         aa = ones(M, N)
                         bb = ones(P, N)
-                        last_block = GEMM_multicluster_entry.feed_block(i, j, aa, bb)
-                        
+                        last_block = GEMM_multicluster_entry.feed_block(i, j, aa, bb)                        
                     end
                 end
+
+                @info "FINISHED"
             end
 
             return nothing    
