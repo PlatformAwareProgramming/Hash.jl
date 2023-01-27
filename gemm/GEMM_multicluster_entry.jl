@@ -10,9 +10,10 @@ using Hash
         @info "master"
 
         function finish()
-            push!(block_queue_in, nothing)
-            for i in topology[:worker]
-                @remotecall_fetch i GEMM_multicluster_entry.finish()
+            s = topology[:source][1]
+            @remotecall_fetch s GEMM_multicluster_entry.finish()v
+            for w in topology[:worker]
+                @remotecall_fetch w GEMM_multicluster_entry.finish()
             end
         end
 
@@ -80,6 +81,10 @@ using Hash
         block_queue_in  = DualLinkedConcurrentRingQueue{Any}()
         block_queue_out = DualLinkedConcurrentRingQueue{Any}()
 
+        function finish()
+            push!(block_queue_in, nothing)
+        end
+        
         # Send two blocks of matrices A e B to be multiplied in a cluster. 
         # We assume that blocks are large enough to fit the master's memory.
         function feed_block(i, j, a, b)
@@ -136,9 +141,7 @@ using Hash
                     @info "i=$i, j=$j, k=$k, last_block=$last_block"
                 end
             end
-        
-            GEMM_multicluster_entry.finish()
-        
+                
         end
 
         wait_unit(:worker)
@@ -146,6 +149,8 @@ using Hash
         @async while true
 
             item = popfirst!(block_queue_in) 
+
+            isnothing(item) && break
             
             (a_blk, b_blk, c_blk, i, j, idx, last_block) = item
 
