@@ -10,4 +10,6 @@ using MulticlusterManager
 
 @launch QueensMulticluster worker:cluster_1 # worker:local_cluster worker:local_cluster worker:local_cluster
 
-@time QueensMulticluster.queens(14)
+@time QueensMulticluster.queens(20)
+
+QueensMulticluster.finish()
