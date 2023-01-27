@@ -91,7 +91,7 @@ using Hash
 
     @unit parallel count=T worker begin
     
-        @info "GEMM_2 worker -- unit_idx=$unit_idx"
+        #@info "GEMM_2 worker -- unit_idx=$unit_idx"
 
         @slice GEMM_threads.gemm 
 

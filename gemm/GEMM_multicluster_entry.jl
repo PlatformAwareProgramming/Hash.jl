@@ -182,7 +182,7 @@ using Hash
 
         function multiply!(a, b, c)
             r = #=gemm.=# GEMM_mpi_entry.multiply!(1.0, 1.0, a, b, c)
-            @info (r[1,1], sum(r))
+            #@info (r[1,1], sum(r))
             return r
         end
 
