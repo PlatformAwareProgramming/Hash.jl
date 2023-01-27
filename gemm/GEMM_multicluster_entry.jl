@@ -27,9 +27,9 @@ using Hash
 
     @unit source begin
 
-        M = 4000
-        N = 6000
-        P = 3000
+        M = 8000
+        N = 12000
+        P = 6000
 
         MBig = Ref{Int}()
         NBig = Ref{Int}()
