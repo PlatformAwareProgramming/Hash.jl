@@ -175,7 +175,7 @@ using Hash
 
         @info "MULTICLUSTER WORKER $unit_idx"
 
-        notify_unit(:worker, unit_idx, :master)
+        notify_unit(:worker, unit_idx, :source)
     end 
 
 end
