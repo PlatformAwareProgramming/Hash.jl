@@ -11,7 +11,7 @@ using Hash
 
         function finish()
             s = topology[:source][1]
-            @remotecall_fetch s GEMM_multicluster_entry.finish()v
+            @remotecall_fetch s GEMM_multicluster_entry.finish()
             for w in topology[:worker]
                 @remotecall_fetch w GEMM_multicluster_entry.finish()
             end
@@ -27,9 +27,9 @@ using Hash
 
     @unit source begin
 
-        M = 8000
-        N = 12000
-        P = 6000
+        M = 400
+        N = 600
+        P = 300
 
         MBig = Ref{Int}()
         NBig = Ref{Int}()
