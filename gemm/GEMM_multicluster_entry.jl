@@ -47,7 +47,6 @@ using Hash
 
         mp_control = Ref{Matrix}()
         mp_control_2 = Ref{Matrix}()
-        last_block_control = Ref{Matrix}()
         n_control = Ref{Int}()
         
         function getBlockDimensions()
@@ -63,7 +62,6 @@ using Hash
             n = div(NBig[], N)
             mp_control[] = zeros(m, p)
             mp_control_2[] = zeros(m, p)
-            last_block_control[] = zeros(m,p)
             n_control[] = n
             c[] = Matrix(undef, m, p)
             return
@@ -80,9 +78,8 @@ using Hash
             end
             c[][i,j] += fetch(mm_request)
             mp_control_2[][i, j] += 1
-            last_block_control[][i,j] |= last_block
             if mp_control_2[][i,j] == n_control[]
-                push!(block_queue_out, (last_block_control[][i,j], x, y, c[][i,j]))
+                push!(block_queue_out, (last_block, x, y, c[][i,j]))
                 c[][i,j] = nothing
             end
 
@@ -137,11 +134,12 @@ using Hash
                 Threads.@spawn begin 
                     count = Ref{Int}(1)
                     last_block = Ref{Bool}(false)
-                    while !last_block[]
+                    while (!last_block[])
                         (lb, x, y, cc) = popfirst!(GEMM_multicluster_entry.block_queue_out)
                         c[x:(x+M-1), y:(y+P-1)] = cc
                         @info "output:", (count[], lb, x, y, sum(c))
                         last_block[] = lb
+                        count[] == 16 && break
                         count[] = count[] + 1
                     end
                     @info "FINISHED OUTPUT LOOP"
