@@ -148,7 +148,7 @@ using Hash
                         aa = ones(M, N)
                         bb = ones(P, N)
                         last_block = GEMM_multicluster_entry.feed_block(i, j, aa, bb)
-                        @info "i=$i, j=$j, k=$k, last_block=$last_block"
+                        
                     end
                 end
             end
@@ -165,7 +165,8 @@ using Hash
             isnothing(item) && break
             
             (a_blk, b_blk, c_blk, i, j, idx, last_block) = item
-
+            @info "i=$i, j=$j, idx=$idx, last_block=$last_block"
+            
             mmreq = @remotecall idx GEMM_multicluster_entry.multiply!($a_blk, $b_blk, $c_blk)
             
             @async handle_request(idx, mmreq, i, j, last_block)
