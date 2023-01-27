@@ -141,6 +141,7 @@ using Hash
                         last_block[] = lb
                         count[] = count[] + 1
                     end
+                    @info "FINISHED OUTPUT LOOP"
                 end
             
                 for i in 1:M:MBig, j in 1:P:PBig
@@ -151,7 +152,7 @@ using Hash
                     end
                 end
 
-                @info "FINISHED"
+                @info "FINISHED ALL"
             end
 
             return nothing    
