@@ -13,6 +13,10 @@ using MulticlusterManager
 @launch GEMM_multicluster_entry source:cluster_3 worker:cluster_1 #worker:cluster_2 worker:cluster_4 worker:cluster_5
 
 @time GEMM_multicluster_entry.go()
+@time GEMM_multicluster_entry.go()
+@time GEMM_multicluster_entry.go()
+@time GEMM_multicluster_entry.go()
+@time GEMM_multicluster_entry.go()
 
 GEMM_multicluster_entry.finish()
 
