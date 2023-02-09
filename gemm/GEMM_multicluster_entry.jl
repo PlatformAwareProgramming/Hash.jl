@@ -5,199 +5,256 @@ using Hash
     using Distributed
     using ConcurrentCollections
 
+ 
     @unit master begin
-        
-        @info "master"
+
+        # the master sends the C block index to the source units.    
+
+        indexes_A = Dict{Int, Vector{Tuple{Int,Int}}}()        
+        indexes_B = Dict{Int, Vector{Tuple{Int,Int}}}()        
+        indexes_C = Dict{Int, Vector{Tuple{Int,Int}}}()        
 
         function finish()
-            s = topology[:source][1]
-            @remotecall_fetch s GEMM_multicluster_entry.finish()
+            for s in topology[:source]
+                @remotecall_fetch s GEMM_multicluster_entry.finish()
+            end
             for w in topology[:worker]
                 @remotecall_fetch w GEMM_multicluster_entry.finish()
             end
         end
 
+        function totalNeighborhood()
+            n = Dict()
+            for r in 1:length(topology[:source]), s in 1:length(topology[:source])
+                !haskey(n, r) && (n[r] = [])
+                r != s && push!(n[r], s)
+            end
+            return n
+        end
+
         function go()
-            i = topology[:source][1]
-            @remotecall_fetch i GEMM_multicluster_entry.main()   
+
+            Threads.@threads for sidx in topology[:source]
+                @remotecall_fetch sidx GEMM_multicluster_entry.perform()   
+            end
+        end
+
+        DIM = Ref{Tuple{Int,Int,Int}}()
+
+        function distribute_indexes(r, s, indexes)
+            source_size = length(topology[:source])
+            
+            sidx = Ref{Int}(1)
+            for i in 1:DIM[][r], j in 1:DIM[][s]
+                !haskey(indexes, sidx[]) && (indexes[sidx[]] = [])
+                push!(indexes[sidx[]], (i,j))
+                sidx[] = mod(sidx[], source_size) + 1
+            end
+        end
+
+        function setProblem(nM, nN, nP)
+            DIM[] = (nM, nN, nP)
+            distribute_indexes(1, 2, indexes_A)
+            distribute_indexes(3, 2, indexes_B)
+            distribute_indexes(1, 3, indexes_C)
+
+            @info "INDEXES A: $indexes_A"
+            @info "INDEXES B: $indexes_B"
+            @info "INDEXES C: $indexes_C"
+
+            Threads.@threads for i in 1:length(topology[:source])
+                sidx = topology[:source][i]
+                @remotecall_fetch sidx GEMM_multicluster_entry.setIndexesAB($indexes_A[$i], $indexes_B[$i], $i)
+                @remotecall_fetch sidx GEMM_multicluster_entry.setIndexesC($indexes_C[$i], $i)
+            end
+
+            n = totalNeighborhood()            
+            Threads.@threads for i in 1:length(topology[:source])
+                sidx = topology[:source][i]
+                @remotecall_fetch sidx GEMM_multicluster_entry.exchangeMappingInfo($n[$i])
+            end
         end
 
     end
 
+    # source and worker are supposedly in the same network domain (one-by-one correspondence)
 
-    @unit source begin
+    @unit parallel source begin
 
-        M = 4000
-        N = 6000
-        P = 3000
+        # the source units have a local index for matrices A and B
+        indexes_A = Dict{Tuple{Int,Int}, Int}()        
+        indexes_B = Dict{Tuple{Int,Int}, Int}()        
+        indexes_C = Dict{Tuple{Int,Int}, Int}()        
+    
+        # cluster-level block sizes
+        M = 1000
+        N = 1500
+        P = 750
 
-        #M = 2000
-        #N = 3000
-        #P = 1500
-
-        #M = 1000
-        #N = 1500
-        #P = 750
-
-        MBig = Ref{Int}()
-        NBig = Ref{Int}()
-        PBig = Ref{Int}()
-
-        c = Ref{Matrix}()
-
-        mp_control = Ref{Matrix}()
-        mp_control_2 = Ref{Matrix}()
-        n_control = Ref{Int}()
+        a = Dict{Tuple{Int,Int}, Matrix}() 
+        b = Dict{Tuple{Int,Int}, Matrix}() 
+        c = Dict{Tuple{Int,Int}, Matrix}() 
         
-        function getBlockDimensions()
-            return M, N, P
+        #neighborhood = Vector{Int}()
+
+        last_j = Ref{Int}(0)
+
+        # first called by the master and then by the connected sources
+        function setIndexesAB(ixA, ixB, idx)
+            @info "$unit_idx setting indexes(AB) from $idx: $ixA / $ixB"
+            for (i,k) in ixA
+                @assert !haskey(indexes_A, (i,k))
+                indexes_A[(i,k)] = idx
+                if idx == unit_idx
+                    a[(i,k)] = ones(M,N)
+                end
+            end
+            for (j,k) in ixB
+                @assert !haskey(indexes_B, (j,k))
+                j > last_j[] && (last_j[] = j)
+                indexes_B[(j,k)] = idx
+                if idx == unit_idx
+                    b[(j,k)] = ones(P,N)
+                end
+            end
         end
 
-        function setProblem(Mbig, Nbig, Pbig)
-            MBig[] = Mbig; @assert mod(MBig[], M) == 0
-            NBig[] = Nbig; @assert mod(NBig[], N) == 0
-            PBig[] = Pbig; @assert mod(PBig[], P) == 0
-            m = div(MBig[], M)
-            p = div(PBig[], P)
-            n = div(NBig[], N)
-            mp_control[] = zeros(m, p)
-            mp_control_2[] = zeros(m, p)
-            n_control[] = n
-            c[] = Matrix(undef, m, p)
+        # called by the master and then by the connected sources
+        function setIndexesC(ixC, idx)
+            @info "$unit_idx setting indexes(C) from $idx: $ixC"
+            for (i,j) in ixC
+                @assert !haskey(indexes_C, (i,j))
+                indexes_C[(i,j)] = idx
+                if idx == unit_idx
+                    c[(i,j)] = zeros(M,P)
+                end
+            end
+        end
+
+        getIndexesAB() = keys(a), keys(b)
+        getIndexesC() = keys(c)
+
+        #function setNeighborhood(nei)
+        #    @info "$unit_idx receiving neighborhood from master: $nei"
+        #    for i in nei
+        #        @assert i in 1:length(topology[:source])
+        #        push!(neighborhood, i) 
+        #    end
+        #end
+
+        function exchangeMappingInfo(neighborhood)
+            @info "$unit_idx: exchangeMappingInfo --- $neighborhood"
+            for i in neighborhood
+                sidx = topology[:source][i]
+                @info "begin $unit_idx call getIndexesAB in $i"
+                idxA, idxB = @remotecall_fetch sidx GEMM_multicluster_entry.getIndexesAB()
+                setIndexesAB(idxA, idxB, i)
+                @info "end $unit_idx call getIndexesAB in $i"
+            end
+            for sidx in topology[:source]
+                if sidx != topology[:source][unit_idx]
+                    i = indexin(sidx, topology[:source])[]
+                    @info "begin $unit_idx call getIndexesC in $i"
+                    idxC = @remotecall_fetch sidx GEMM_multicluster_entry.getIndexesC()
+                    setIndexesC(idxC, i)
+                    @info "end $unit_idx call getIndexesC in $i"
+                end
+            end
+        end
+
+
+        #function check_indexes()
+        #end
+
+        block_queue_in  = DualLinkedConcurrentRingQueue{Any}()
+
+        function feed_block(i, j, k, a, sunit_idx_b)
+            c = zeros(M, P)
+            idx_w = topology[:worker][unit_idx]
+            item = (i, j, k, a, c, idx_w, sunit_idx_b)
+            push!(block_queue_in, item)
+        end
+
+        function perform()
+
+            #exchangeMappingInfo()
+            #check_indexes() 
+
+            @async while true
+
+                item = popfirst!(block_queue_in) 
+    
+                isnothing(item) && break
+                
+                (i, j, k, a_blk, c_blk, idx_w, sunit_idx_b) = item
+                @info "TAKE unit_idx = $unit_idx: i=$i, j=$j, k=$k, idx_w=$idx_w, sunit_idx_b=$sunit_idx_b"
+    
+                b_blk = if sunit_idx_b == unit_idx 
+                             b[(j,k)] 
+                        else 
+                            sidx = topology[:source][sunit_idx_b]
+                            @remotecall_fetch sidx GEMM_multicluster_entry.get_b_block($j,$k)
+                        end
+                
+                mmreq = @remotecall idx_w GEMM_multicluster_entry.multiply!($a_blk, $b_blk, $c_blk)
+                
+                @async handle_request(mmreq, i, j)
+            end
+
+            for (i,k) in keys(a)
+                for j in 1:(last_j[])
+                    sunit_idx_b = indexes_B[(j,k)]
+                    GEMM_multicluster_entry.feed_block(i, j, k, a[i,k], sunit_idx_b)    
+                    @info "$unit_idx: **** FEED BLOCK i=$i j=$j k=$k sunit_idx_b=$sunit_idx_b last_j=$(last_j[])"
+                end
+            end
+        end
+
+        function set_c_block(cc, i, j)
+            @assert indexes_C[(i,j)] == unit_idx 
+            if !haskey(c,(i,j))
+                c[(i,j)] = zeros(M, P)
+            end
+            c[(i,j)] += cc
+            @info "c[($i,$j)][1,1] UPDATE $(c[(i,j)][1,1]))"
             return
         end
 
-        idle_workers = DualLinkedConcurrentRingQueue{Int}()
-        for w in topology[:worker] push!(idle_workers, w) end 
-            
-        function handle_request(id, mm_request, x, y, last_block)
-            i = div(x-1, M) + 1
-            j = div(y-1, P) + 1
-            if !isassigned(c[], i, j)
-                c[][i,j] = zeros(M, P)
-            end
-            c[][i,j] += fetch(mm_request)
-            mp_control_2[][i, j] += 1
-            if mp_control_2[][i,j] == n_control[]
-                push!(block_queue_out, (last_block, x, y, c[][i,j]))
-                c[][i,j] = nothing
-            end
-
-            @async push!(idle_workers, id)
+        function get_b_block(j, k)
+            @assert indexes_B[(j,k)] == unit_idx 
+            return b[(j,k)]
         end
-        
-        block_queue_in  = DualLinkedConcurrentRingQueue{Any}()
-        block_queue_out = DualLinkedConcurrentRingQueue{Any}()
+
+        function handle_request(mm_request, i, j)
+            cc = fetch(mm_request)
+            sunit_idx_c = indexes_C[(i,j)]
+            cidx = topology[:source][sunit_idx_c]
+            # send c block to the correct source ... 
+            @remotecall_fetch cidx GEMM_multicluster_entry.set_c_block($cc, $i, $j)
+        end
 
         function finish()
+            @info "finish source"
             push!(block_queue_in, nothing)
             return nothing
         end
-        
-        # Send two blocks of matrices A e B to be multiplied in a cluster. 
-        # We assume that blocks are large enough to fit the master's memory.
-        function feed_block(i, j, a, b)
-            @assert MBig[] > 0
-            @assert NBig[] > 0 
-            @assert PBig[] > 0
-            @assert mod(i-1, M) == 0
-            @assert mod(j-1, P) == 0            
-            c = zeros(M, P)
 
-            m = div(i-1, M) + 1
-            p = div(j-1, P) + 1
-            mp_control[][m, p] += 1
-            @assert mp_control[][m, p] <= n_control[]
-
-            # returns if all the blocks of matrices have been sent
-            all_blocks_set = sum(mp_control[]) == n_control[] * size(mp_control[], 1) * size(mp_control[], 2)
-            idx = popfirst!(idle_workers)
-            item = (a, b, c, i, j, idx, all_blocks_set)
-            push!(block_queue_in, item)
-            return all_blocks_set
-        end
-
-
-        function main()
-
-            M, N, P = getBlockDimensions()
-        
-            MBig = M*4
-            NBig = N*4
-            PBig = P*4
-        
-            c = zeros(MBig, PBig)
-        
-            setProblem(MBig, NBig, PBig)
-        
-            @sync begin
-                Threads.@spawn begin 
-                    count = Ref{Int}(1)
-                    last_block = Ref{Bool}(false)
-                    while (!last_block[])
-                        (lb, x, y, cc) = popfirst!(GEMM_multicluster_entry.block_queue_out)
-                        c[x:(x+M-1), y:(y+P-1)] = cc
-                        @info "output:", (count[], lb, x, y, sum(c))
-                        last_block[] = lb
-                        count[] == 16 && break
-                        count[] = count[] + 1
-                    end
-                    @info "FINISHED OUTPUT LOOP"
-                end
-            
-                for i in 1:M:MBig, j in 1:P:PBig
-                    for k in 1:N:NBig
-                        aa = ones(M, N)
-                        bb = ones(P, N)
-                        last_block = GEMM_multicluster_entry.feed_block(i, j, aa, bb)                        
-                    end
-                end
-
-                @info "FINISHED ALL"
-            end
-
-            return nothing    
-        end
-
-        wait_unit(:worker)
-
-        @async while true
-
-            item = popfirst!(block_queue_in) 
-
-            isnothing(item) && break
-            
-            (a_blk, b_blk, c_blk, i, j, idx, last_block) = item
-            @info "i=$i, j=$j, idx=$idx, last_block=$last_block"
-            
-            mmreq = @remotecall idx GEMM_multicluster_entry.multiply!($a_blk, $b_blk, $c_blk)
-            
-            @async handle_request(idx, mmreq, i, j, last_block)
-        end
+       #wait_unit(:worker)
 
     end
 
-    #@inner GEMM_multicluster
-
     @unit parallel worker begin
         
-        #@slice GEMM_multicluster.gemm        
         @inner GEMM_mpi_entry
 
-        function multiply!(a, b, c)
-            r = #=gemm.=# GEMM_mpi_entry.multiply!(1.0, 1.0, a, b, c)
-            #@info (r[1,1], sum(r))
-            return r
-        end
+        multiply!(a, b, c) = GEMM_mpi_entry.multiply!(1.0, 1.0, a, b, c)
 
-        function finish()
-            GEMM_mpi_entry.finish()
-            return nothing
-        end
+        finish() = GEMM_mpi_entry.finish()
 
         @info "MULTICLUSTER WORKER $unit_idx"
 
-        notify_unit(:worker, unit_idx, :source)
+       # notify_unit(:worker, unit_idx, :source)
+    
     end 
 
 end
