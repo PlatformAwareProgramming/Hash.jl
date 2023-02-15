@@ -48,23 +48,16 @@ function do_launch(app, args)
         (host_addr, n, host_args) = hosts[][c]
 
         host_dir = ``
-        ssh_flags = ``
-        port = 22
-        id = ``
+        scp_flags = ``
         for arg in host_args
             if arg.args[1] == :dir
                 host_dir = eval(arg.args[2])
-            elseif arg.args[1] == :sshflags
-                ssh_flags = eval(arg.args[2])
-            elseif arg.args[1] == :identity_file
-                id_ = eval(arg.args[2])
-                id = `-i $id_`
-            elseif arg.args[1] == :port
-                port = eval(arg.args[2])
+            elseif arg.args[1] == :scpflags
+                scp_flags = eval(arg.args[2])
             end
         end
         
-        cmd = `scp $id -P $port $ssh_flags ./placement $host_addr:$host_dir`
+        cmd = `scp $scp_flags ./placement $host_addr:$host_dir`
 
         @info cmd
         run(cmd)
