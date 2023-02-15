@@ -8,6 +8,8 @@ MPI.Init()
 
 @computation cluster GEMM_mpi_entry begin
 
+    using MPI
+
     function block_cyclic_2D_scatter_master(comm, X, Y, M, N, m, n, a, tag)
         for i in 1:m:M
             row = mod(div(i, m), X)
@@ -50,53 +52,71 @@ MPI.Init()
         end
     end
 
-    
+    X = Ref{Int}(2)
+    Y = Ref{Int}(2)
+
+    all_comm = Ref{MPI.Comm}(MPI.COMM_NULL)
+
     @unit master begin    
 
         @info "======>>>> MASTER unit_idx = $unit_idx, topology = $topology, local_topology = $local_topology"
 
         using MPI
 
+        function setGrid(newX, Ynew)
+            X[] = newX
+            Y[] = newY
+        end
+
         function multiply!(alpha, beta, a, b, c)
-            X = 2
-            Y = 3
             ma = 125 #125 # 500 250
             n  = 125 
             pb = 125
             mc = 125
             pc = 125
-            multiply!(X, Y, ma, n, pb, mc, pc, alpha, beta, a, b, c)
+            multiply!(X[], Y[], ma, n, pb, mc, pc, alpha, beta, a, b, c)
         end
 
-        world_comm = MPI.COMM_WORLD
-        world_group = MPI.Comm_group(world_comm)
-        workers_group = MPI.Group_excl(world_group, Int32[0])
-        MPI.Comm_create(world_comm, workers_group)
+        root = topology[:master][1]
+        comm_size = MPI.Comm_size(MPI.COMM_WORLD)
 
-        function multiply!(X, Y, ma, n, pb, mc, pc, alpha, beta, a, b, c)
+        world_group = MPI.Comm_group(MPI.COMM_WORLD)
+        all_group = MPI.Group_excl(world_group, Int32[i for i in X[]*Y[]+1:comm_size-1])
+        all_comm[] = MPI.Comm_create(MPI.COMM_WORLD, all_group)
+
+        workers_group = MPI.Group_excl(all_group, Int32[root])
+        MPI.Comm_create(all_comm[], workers_group)
+
+        function multiply!(X_, Y_, ma, n, pb, mc, pc, alpha, beta, a, b, c)
 
             M = size(a,1)
             N = size(a,2); @assert size(b,2) == N
             P = size(b,1)
 
-            for i in topology[:worker]
-                MPI.Send(false, world_comm; dest = i, tag = 444)
+            root = topology[:master][1]
+            all_comm_size = MPI.Comm_size(all_comm[])
+            for i in 0:all_comm_size-1
+                if i != root
+                    MPI.Send(false, all_comm[]; dest = i, tag = 444)
+                end
             end
 
-            root = topology[:master][1]
-            MPI.bcast((X, Y, M, N, P, ma, n, pb, mc, pc, alpha, beta), root, world_comm)
+            MPI.bcast((X_, Y_, M, N, P, ma, n, pb, mc, pc, alpha, beta), root,all_comm[])
 
-            block_cyclic_2D_scatter_master(world_comm, X, Y, M, N, ma, n, a, 111)            
-            block_cyclic_2D_scatter_master(world_comm, X, Y, P, N, pb, n, b, 222)
-            block_cyclic_2D_gather_master(world_comm, X, Y, M, P, mc, pc, c, 333)
+            block_cyclic_2D_scatter_master(all_comm[], X_, Y_, M, N, ma, n, a, 111)            
+            block_cyclic_2D_scatter_master(all_comm[], X_, Y_, P, N, pb, n, b, 222)
+            block_cyclic_2D_gather_master(all_comm[], X_, Y_, M, P, mc, pc, c, 333)
 
             return c
         end
 
         function finish()
             @info "CALL FINISH $(topology[:worker])"
-            for i in topology[:worker]
-                MPI.Send(true, world_comm; dest = i, tag = 444)
+            all_comm_size = MPI.Comm_size(all_comm[])
+            for i in 0:all_comm_size-1
+                if i != root
+                    MPI.Send(true, all_comm[]; dest = i, tag = 444)
+                end
             end
         end
 
@@ -108,41 +128,47 @@ MPI.Init()
 
         using MPI
 
+        workers_comm = Ref{MPI.Comm}(MPI.COMM_NULL)
+
         @slice GEMM_mpi.gemm
 
         root = topology[:master][1]
 
-        world_comm = MPI.COMM_WORLD
-        world_group = MPI.Comm_group(world_comm)
-        workers_group = MPI.Group_excl(world_group, Int32[root])
-        workers_comm = MPI.Comm_create(world_comm, workers_group)
+        comm_size = MPI.Comm_size(MPI.COMM_WORLD)
 
-        termination_flag = Ref{Bool}(false)
+        world_group = MPI.Comm_group(MPI.COMM_WORLD)
+        all_group = MPI.Group_excl(world_group, Int32[i for i in X[]*Y[]+1:comm_size-1])
+        all_comm[] = MPI.Comm_create(MPI.COMM_WORLD, all_group)
 
-        termination_flag[] = MPI.Recv(Bool, world_comm; source=root, tag = 444)
-        while (!termination_flag[])
+        if all_comm[] != MPI.COMM_NULL 
+            workers_group = MPI.Group_excl(all_group, Int32[root])
+            workers_comm[] = MPI.Comm_create(all_comm[], workers_group)
 
-            (X, Y, M, N, P, ma, n, pb, mc, pc, alpha, beta) = MPI.bcast(nothing, world_comm)
-
-            Mx = div(M, X)
-            Ny = div(N, Y)
-            Px = div(P, X)
-            Py = div(P, Y)
+            termination_flag = Ref{Bool}(MPI.Recv(Bool, all_comm[]; source=root, tag = 444))
             
-            a = zeros(Mx, Ny)
-            b = zeros(Px, Ny)
-            c = zeros(Mx, Py)
+            while (!termination_flag[])
 
-            block_cyclic_2D_gather_worker(world_comm, Mx, Ny, ma, n, a, 111)
-            block_cyclic_2D_gather_worker(world_comm, Px, Ny, pb, n, b, 222)
+                (X_, Y_, M, N, P, ma, n, pb, mc, pc, alpha, beta) = MPI.bcast(nothing, all_comm[])
 
-            gemm.multiply!(workers_comm, X, Y, pb, pc, alpha, beta, a, b, c)
+                Mx = div(M, X_)
+                Ny = div(N, Y_)
+                Px = div(P, X_)
+                Py = div(P, Y_)
+                
+                a = zeros(Mx, Ny)
+                b = zeros(Px, Ny)
+                c = zeros(Mx, Py)
 
-            block_cyclic_2D_scatter_worker(world_comm, Mx, Py, mc, pc, c, 333)
+                block_cyclic_2D_gather_worker(all_comm[], Mx, Ny, ma, n, a, 111)
+                block_cyclic_2D_gather_worker(all_comm[], Px, Ny, pb, n, b, 222)
 
-            termination_flag[] = MPI.Recv(Bool, world_comm; source=root, tag = 444)
+                gemm.multiply!(workers_comm[], X_, Y_, pb, pc, alpha, beta, a, b, c)
+
+                block_cyclic_2D_scatter_worker(all_comm[], Mx, Py, mc, pc, c, 333)
+
+                termination_flag[] = MPI.Recv(Bool, all_comm[]; source=root, tag = 444)
+            end
         end
-
     end
 
 end
