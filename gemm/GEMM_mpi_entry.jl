@@ -1,5 +1,6 @@
 using Hash
 using MPI
+ENV["UCX_WARN_UNUSED_ENV_VARS"] = "n"
 
 function stop()
 end
