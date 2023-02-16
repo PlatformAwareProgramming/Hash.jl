@@ -1,4 +1,3 @@
-using BenchmarkTools
 
 block_size = [5, 25, 125]
 #block_size = [25, 50, 250]
