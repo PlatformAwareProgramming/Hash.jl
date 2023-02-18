@@ -5,13 +5,12 @@
 
 hosts = Ref{Dict}(Dict())
 
-macro cluster(name, address, n, args...)
-    cluster_config(name, address, n, args)
+macro cluster(name, host_addr, binding_addr, n, args...)
+    cluster_config(name, host_addr, binding_addr, n, args)
 end
 
-
-function cluster_config(name, address, n, args)
-    hosts[][name] = (address, n, args)
+function cluster_config(name, host_addr, binding_addr, n, args)
+    hosts[][name] = (host_addr, binding_addr, n, args)
     @info hosts[][name]
     return hosts[][name]
 end
@@ -45,7 +44,8 @@ function do_launch(app, args)
         @assert t.head == :call
         @assert t.args[1] == :(:)
         c = t.args[3]
-        (host_addr, n, host_args) = hosts[][c]
+        (host_addr, binding_addr, n, host_args) = hosts[][c]
+        host_addr = split(host_addr,":")[1]
 
         host_dir = ``
         scp_flags = ``
@@ -67,7 +67,10 @@ function do_launch(app, args)
         @assert t.head == :call
         @assert t.args[1] == :(:)
         c = t.args[3]
-        (host_addr, n, host_args) = hosts[][c]
+        (host_addr, binding_addr, n, host_args) = hosts[][c]
+        if binding_addr != :nothing
+            host_addr = "$host_addr $binding_addr"
+        end
         addprocs_args = Vector()
         push!(addprocs_args, :addprocs_mpi)
         kwargs = Expr(:parameters, map(t->Expr(:kw,t.args[1],t.args[2]) , host_args)...)
