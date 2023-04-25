@@ -33,7 +33,6 @@ using Hash
         end
 
         function go()
-
             Threads.@threads for sidx in topology[:source]
                 @remotecall_fetch sidx GEMM_multicluster_entry.perform()   
             end
