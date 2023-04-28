@@ -41,6 +41,7 @@ function do_launch(app, args)
     end
 
     for t in args
+
         @assert t.head == :call
         @assert t.args[1] == :(:)
         c = t.args[3]
