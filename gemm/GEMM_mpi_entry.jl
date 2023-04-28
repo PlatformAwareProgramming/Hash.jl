@@ -70,6 +70,7 @@ MPI.Init()
         end
 
         function multiply!(alpha, beta, a, b, c)
+            @info "$unit_idx: mutliply 1"
             ma = 125 #125 # 500 250
             n  = 125 
             pb = 125
@@ -89,6 +90,7 @@ MPI.Init()
         MPI.Comm_create(all_comm[], workers_group)
 
         function multiply!(X_, Y_, ma, n, pb, mc, pc, alpha, beta, a, b, c)
+            @info "$unit_idx: multiply 2"
 
             M = size(a,1)
             N = size(a,2); @assert size(b,2) == N
@@ -102,11 +104,16 @@ MPI.Init()
                 end
             end
 
+            @info "$unit_idx: multiply 3"
             MPI.bcast((X_, Y_, M, N, P, ma, n, pb, mc, pc, alpha, beta), root,all_comm[])
+            @info "$unit_idx: multiply 4"
 
             block_cyclic_2D_scatter_master(all_comm[], X_, Y_, M, N, ma, n, a, 111)            
+            @info "$unit_idx: multiply 5"
             block_cyclic_2D_scatter_master(all_comm[], X_, Y_, P, N, pb, n, b, 222)
+            @info "$unit_idx: multiply 6"
             block_cyclic_2D_gather_master(all_comm[], X_, Y_, M, P, mc, pc, c, 333)
+            @info "$unit_idx: multiply 7"
 
             return c
         end
