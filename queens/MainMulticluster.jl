@@ -34,6 +34,4 @@ using MulticlusterManager
 @time QueensMulticluster.queens(17) 
 @time QueensMulticluster.queens(17) 
 
-
-
 QueensMulticluster.finish()

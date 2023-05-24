@@ -1,6 +1,8 @@
 
+include("queens_params.jl")
 include("queens_base.jl")
 include("queens_cpu_base.jl")
+include("queens_gpu_base.jl")
 
 using Hash
 
