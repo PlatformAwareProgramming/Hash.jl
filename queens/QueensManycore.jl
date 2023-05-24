@@ -63,8 +63,12 @@
 
             number_of_subproblems = length(subproblems)
 
-            num_gpus = Int64(CUDA.has_device() ? length(CUDA.devices()) : 0)
-        
+            num_gpus = Int64(try
+                                 CUDA.ndevices()
+                             catch
+                                 0
+                             end)
+
             tree_each_task = zeros(Int64, num_gpus + 1)
             sols_each_task = zeros(Int64, num_gpus + 1)
         
