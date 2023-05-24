@@ -63,12 +63,12 @@
 
             number_of_subproblems = length(subproblems)
 
-            num_gpus = Int64(length(CUDA.devices()))
+            num_gpus = Int64(CUDA.has_device() ? length(CUDA.devices()) : 0)
         
             tree_each_task = zeros(Int64, num_gpus + 1)
             sols_each_task = zeros(Int64, num_gpus + 1)
         
-            cpup = Main.getCpuPortion()
+            cpup = num_gpus > 0 ? Main.getCpuPortion() : 1.0
             cpu_load = get_cpu_load(cpup, number_of_subproblems)
             gpu_load = number_of_subproblems - cpu_load
         
