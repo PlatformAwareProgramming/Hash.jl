@@ -45,7 +45,9 @@ using Hash
                 idx += local_load
         
                 result[i] = @remotecall topology[:worker][i] begin
+                    @info "SENDING WORKLOAD TO $(topology[:worker][i]) *** size = $size, cutoff_depth = $cutoff_depth, local_subproblems = $local_subproblems -- BEGIN"
                     QueensMulticluster.queens_at_worker($size, $cutoff_depth, $local_subproblems)
+                    @info "SENDING WORKLOAD TO $(topology[:worker][i]) *** size = $size, cutoff_depth = $cutoff_depth, local_subproblems = $local_subproblems -- END"
                 end
             end
         
