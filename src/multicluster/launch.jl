@@ -79,6 +79,7 @@ function do_launch(app, args)
         rgargs = :([($host_addr, $app_full, $n, $app_full)])
         push!(addprocs_args, rgargs)
         push!(block_args, Expr(:macrocall, Symbol("@async"), :(), Expr(:call, addprocs_args...)))
+        push!(block_args, Expr(:call, addprocs_args...))
     end
 
     push!(block_args, Expr(:macrocall, Symbol("@async"), :(), :(include($app_full))))
