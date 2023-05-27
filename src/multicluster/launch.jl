@@ -82,7 +82,7 @@ function do_launch(app, args)
         push!(block_args, Expr(:call, addprocs_args...))
     end
 
-    push!(block_args, Expr(:macrocall, Symbol("@async"), :(), :(include($app_full))))
+    pushfirst!(block_args, Expr(:macrocall, Symbol("@async"), :(), :(include($app_full))))
 
     @info Expr(:macrocall, Symbol("@sync"), nothing, Expr(:block, block_args...))
     esc(Expr(:macrocall, Symbol("@sync"), nothing, Expr(:block, block_args...)))
