@@ -9,3 +9,5 @@ In a parallel programming language/artifact fully based on μHash, a particular 
 In the current implementation of Hash.jl, using the metaprogramming features of Julia to avoid modifying its compiler or runtime system, components are still compile-time entities (static), and Julia programmers must use the existing programming artifacts of the Julia ecosystem (e.g. Distributed.jl, MPI.jl, FLoops.jl, @threads, @spawn, etc) in order to program for each parallelism level. 
 
 Hash.hl depends on another experimental package, called [MulticlusterManager.jl](https://github.com/PlatformAwareProgramming/MulticlusterManager.jl) in order to enable parallelism at the multicluster level.
+
+Please contact us if you are interested in using this package or contributing to its development.
